@@ -5,4 +5,5 @@ const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('electronAPI', {
   runModel: (params) => ipcRenderer.invoke('run-model', params),
+  runPopulationModel: (params) => ipcRenderer.invoke('run-population-model', params),
 });

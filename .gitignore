@@ -96,3 +96,6 @@ build/
 dist/
 out/
 bin/
+
+# Personal notes
+notes.md

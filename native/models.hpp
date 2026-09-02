@@ -21,19 +21,24 @@ struct IndividualParamaters{
 
 // Struct for storing Individual Modelling Results
 struct IndividualResults{
-    float t;
+    std::vector<float> t;
+    std::vector<double> log10V;
+    
+    std::vector<double> C_P_uM;
+    std::vector<double> epsilon;
 
-    double log10V;
-    double C_P_uM;
-    double epsilon;
-
-    // Constructor
-    IndividualResults(float t_, double log10V_, double C_P_uM_, double epsilon_)
-        : t(t_), log10V(log10V_), C_P_uM(C_P_uM_), epsilon(epsilon_) {}
+    void init(size_t expected_steps, bool is_control) {
+        t.reserve(expected_steps);
+        log10V.reserve(expected_steps);
+        if (!is_control) {
+            C_P_uM.reserve(expected_steps);
+            epsilon.reserve(expected_steps);
+        }
+    }
 };
 
 void ModelIndividual(const IndividualParamaters& parameters,
-    std::vector<IndividualResults>& results
+    IndividualResults& results
 );
 
 
@@ -56,3 +61,6 @@ struct PopulationParamaters{
     double t_psi_rate; // Rate of time from symptom onset to randomisation
     double t_psi_max; // Maximum time from symptom onset to randomisation
 };
+
+void ModelPopulation(const PopulationParamaters& population_parameters,
+                     std::vector<IndividualResults>& population_results);

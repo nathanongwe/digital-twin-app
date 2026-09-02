@@ -80,7 +80,7 @@ static int f(sunrealtype t, N_Vector x, N_Vector dxdt, void* user_data) {
 
 // Function for Simulating Individual System
 void ModelIndividual(const IndividualParamaters& parameters,
-    std::vector<IndividualResults>& results) 
+    IndividualResults& results) 
     {
     SUNContext sunctx;
     int retval;
@@ -198,16 +198,25 @@ void ModelIndividual(const IndividualParamaters& parameters,
         // Save results
         float t = static_cast<float>(t_out);
         double log10V = std::log10(x_data[4]);
-        double C_P_uM = ((x_data[6] / sys->Vol) / sys->M) * 1e6;
 
-        double epsilon = 0.0;
-        if (t_out >= sys->t_dose_start && t_out < sys->t_dose_end) {
-            double C_n = std::pow(C_P_uM, sys->hill_n);
-            double IC_n = std::pow(sys->IC50, sys->hill_n);
-            epsilon = (C_n / (IC_n + C_n)) * sys->E_max;
+        results.t.emplace_back(t);
+        results.log10V.emplace_back(log10V);
+
+        if (!parameters.is_control)
+        {
+            double C_P_uM = ((x_data[6] / sys->Vol) / sys->M) * 1e6;
+
+            double epsilon = 0.0;
+            if (t_out >= sys->t_dose_start && t_out < sys->t_dose_end) {
+                double C_n = std::pow(C_P_uM, sys->hill_n);
+                double IC_n = std::pow(sys->IC50, sys->hill_n);
+                epsilon = (C_n / (IC_n + C_n)) * sys->E_max;
+            }
+
+            results.C_P_uM.emplace_back(C_P_uM);
+            results.epsilon.emplace_back(epsilon);
         }
 
-        results.emplace_back(t, log10V, C_P_uM, epsilon);
     }
 
     // 7. Memory Cleanup
@@ -235,7 +244,7 @@ static double SampleTruncatedNormal(std::mt19937& rng, double mean, double sd, d
 
 // Function for Simulating Population
 void ModelPopulation(const PopulationParamaters& population_parameters,
-                     std::vector<std::vector<IndividualResults>>& population_results) 
+                     std::vector<IndividualResults>& population_results) 
 {
     population_results.clear();
     population_results.reserve(population_parameters.sample_size);
@@ -301,7 +310,7 @@ void ModelPopulation(const PopulationParamaters& population_parameters,
 
         individual.t_sigma = std::round(incubation_period + psi);
 
-        std::vector<IndividualResults> individual_results;
+        IndividualResults individual_results;
         ModelIndividual(individual, individual_results);
 
         population_results.push_back(std::move(individual_results));
