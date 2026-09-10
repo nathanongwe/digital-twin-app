@@ -37,7 +37,7 @@ struct IndividualResults{
     }
 };
 
-void ModelIndividual(const IndividualParamaters& parameters,
+bool ModelIndividual(const IndividualParamaters& parameters,
     IndividualResults& results
 );
 

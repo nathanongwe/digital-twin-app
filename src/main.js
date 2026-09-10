@@ -61,7 +61,7 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const addonPath = path.join(app.getAppPath(), 'build/Release/simulation_addon.node');
-const { modelIndividual, modelPopulation } = require(addonPath);
+const { modelIndividual, modelPopulation, modelTrial } = require(addonPath);
 
 ipcMain.handle('run-model', async (event, params) => {
   try {
@@ -75,6 +75,15 @@ ipcMain.handle('run-model', async (event, params) => {
 ipcMain.handle('run-population-model', async (event, params) => {
   try {
     return modelPopulation(params);
+  } catch (error) {
+    console.error('Error running native population model:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('run-trial-model', async (event, params) => {
+  try {
+    return modelTrial(params);
   } catch (error) {
     console.error('Error running native population model:', error);
     throw error;

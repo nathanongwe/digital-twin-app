@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import PopulationChart from '../visualisations/PopulationChart';
 
-const DEFAULT_POPULATION_PARAMS = {
+const DEFAULT_TRIAL_PARAMS = {
+  runs: 100,
   control_sample_size: 84,
   treatment_sample_size: 58,
   dose: 300,
@@ -13,8 +14,8 @@ const DEFAULT_POPULATION_PARAMS = {
   t_psi_max: 4.0 // Maximum time from symptom onset to randomisation
 };
 
-export default function PopulationApp() {
-  const [params, setParams] = useState(DEFAULT_POPULATION_PARAMS);
+export default function TrialApp() {
+  const [params, setParams] = useState(DEFAULT_TRIAL_PARAMS);
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -39,7 +40,7 @@ export default function PopulationApp() {
 
     try {
       if (window.electronAPI?.runPopulationModel) {
-        const data = await window.electronAPI.runPopulationModel(params);
+        const data = await window.electronAPI.runTrialModel(params);
         setResults(data);
       } else {
         throw new Error('Electron API not available');
@@ -53,7 +54,7 @@ export default function PopulationApp() {
 
   return (
     <div style={{ fontFamily: 'sans-serif' }}>
-      <h3>Population Simulation</h3>
+      <h3>Clinical Trial Simulation</h3>
       <div
         style={{
           display: 'flex',
@@ -68,7 +69,21 @@ export default function PopulationApp() {
           <h3>Parameters</h3>
 
           <form onSubmit={handleRunSimulation} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label>Number of Simulation Runs:</label>
+              <input
+                type="number"
+                name="runs"
+                min="1"
+                step="1"
+                value={params.runs}
+                onChange={(e) => handleParamChange('runs', e.target.value)}
+                style={{ width: '90px' }}
+              />
+            </div>
+
+            <hr style={{ width: '100%', margin: '0.4rem 0' }} />
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <label>Sample Size (Control):</label>
               <input

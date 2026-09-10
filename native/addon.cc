@@ -1,6 +1,7 @@
 #include <napi.h>
 #include <vector>
 #include "models.hpp"
+#include <iostream>
 
 // Helper to parse JS object into IndividualParamaters struct
 IndividualParamaters ParseIndividualParams(const Napi::Object& obj) {
@@ -23,7 +24,6 @@ IndividualParamaters ParseIndividualParams(const Napi::Object& obj) {
     return p;
 }
 
-// Wrapper function exposed to Node.js
 Napi::Value ModelIndividualWrapped(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
 
@@ -74,19 +74,24 @@ Napi::Value ModelIndividualWrapped(const Napi::CallbackInfo& info) {
     return response;
 }
 
-// Helper to extract log10V at end of treatment (t = t_sigma + dosing_duration)
-double GetEndOfTreatmentViralLoad(const IndividualResults& res, double t_end) {
-    if (res.t.empty()) return 0.0;
-    size_t closest_idx = 0;
-    double min_diff = std::abs(res.t[0] - t_end);
-    for (size_t i = 1; i < res.t.size(); ++i) {
-        double diff = std::abs(res.t[i] - t_end);
-        if (diff < min_diff) {
-            min_diff = diff;
-            closest_idx = i;
-        }
-    }
-    return res.log10V[closest_idx];
+PopulationParamaters ParsesPopulationParams(const Napi::Object& obj) {
+    PopulationParamaters pop_params;
+
+    if (obj.Has("treatment_sample_size")) pop_params.sample_size = obj.Get("treatment_sample_size").As<Napi::Number>().Int32Value();
+    
+    if (obj.Has("dose")) pop_params.dose = obj.Get("dose").As<Napi::Number>().Int32Value();
+    if (obj.Has("dosing_duration")) pop_params.dosing_duration = obj.Get("dosing_duration").As<Napi::Number>().Int32Value();
+    if (obj.Has("dt")) pop_params.dt = obj.Get("dt").As<Napi::Number>().DoubleValue();
+    if (obj.Has("t_max")) pop_params.t_max = obj.Get("t_max").As<Napi::Number>().Int32Value();
+    
+    if (obj.Has("vaccination_proportion")) pop_params.vaccination_proportion = obj.Get("vaccination_proportion").As<Napi::Number>().DoubleValue();
+    if (obj.Has("age_mean")) pop_params.age_mean = obj.Get("age_mean").As<Napi::Number>().DoubleValue();
+    if (obj.Has("age_sd")) pop_params.age_sd = obj.Get("age_sd").As<Napi::Number>().DoubleValue();
+    if (obj.Has("t_psi_shape")) pop_params.t_psi_shape = obj.Get("t_psi_shape").As<Napi::Number>().DoubleValue();
+    if (obj.Has("t_psi_rate")) pop_params.t_psi_rate = obj.Get("t_psi_rate").As<Napi::Number>().DoubleValue();
+    if (obj.Has("t_psi_max")) pop_params.t_psi_max = obj.Get("t_psi_max").As<Napi::Number>().DoubleValue();
+
+    return pop_params;
 }
 
 Napi::Value ModelPopulationWrapped(const Napi::CallbackInfo& info) {
@@ -97,25 +102,13 @@ Napi::Value ModelPopulationWrapped(const Napi::CallbackInfo& info) {
         return env.Null();
     }
 
-    Napi::Object obj = info[0].As<Napi::Object>();
-    PopulationParamaters pop_params;
+    Napi::Object inputParams = info[0].As<Napi::Object>();
+    PopulationParamaters pop_params = ParsesPopulationParams(inputParams);
 
-    int control_n = obj.Has("control_sample_size") ? obj.Get("control_sample_size").As<Napi::Number>().Int32Value() : 84;
-    int treated_n = obj.Has("treatment_sample_size") ? obj.Get("treatment_sample_size").As<Napi::Number>().Int32Value() : 58;
-    
-    pop_params.dose = obj.Has("dose") ? obj.Get("dose").As<Napi::Number>().Int32Value() : 300;
-    pop_params.dosing_duration = obj.Has("dosing_duration") ? obj.Get("dosing_duration").As<Napi::Number>().Int32Value() : 5;
-    pop_params.dt = obj.Has("dt") ? obj.Get("dt").As<Napi::Number>().DoubleValue() : 0.1;
-    pop_params.t_max = obj.Has("t_max") ? obj.Get("t_max").As<Napi::Number>().Int32Value() : 30;
-    
-    pop_params.vaccination_proportion = obj.Get("vaccination_proportion").As<Napi::Number>().DoubleValue();
-    pop_params.age_mean = obj.Get("age_mean").As<Napi::Number>().DoubleValue();
-    pop_params.age_sd = obj.Get("age_sd").As<Napi::Number>().DoubleValue();
-    pop_params.t_psi_shape = obj.Get("t_psi_shape").As<Napi::Number>().DoubleValue();
-    pop_params.t_psi_rate = obj.Get("t_psi_rate").As<Napi::Number>().DoubleValue();
-    pop_params.t_psi_max = obj.Get("t_psi_max").As<Napi::Number>().DoubleValue();
+    int control_n = inputParams.Get("control_sample_size").As<Napi::Number>().Int32Value();
+    int treated_n = inputParams.Get("treatment_sample_size").As<Napi::Number>().Int32Value();
 
-    // 1. Run Control Arm
+    // 1. Run Control 
     pop_params.sample_size = control_n;
     pop_params.is_control = true;
     std::vector<IndividualResults> control_pop;
@@ -123,12 +116,14 @@ Napi::Value ModelPopulationWrapped(const Napi::CallbackInfo& info) {
 
     Napi::Array jsControlVL = Napi::Array::New(env, control_pop.size());
     for (size_t i = 0; i < control_pop.size(); ++i) {
-        // Evaluate at standard endpoint or patient-specific endpoint
-        double vl = control_pop[i].log10V.empty() ? 0.0 : control_pop[i].log10V.back();
-        jsControlVL.Set(i, Napi::Number::New(env, vl));
+        Napi::Array patientTrajectory = Napi::Array::New(env, control_pop[i].log10V.size());
+        for (size_t j = 0; j < control_pop[i].log10V.size(); ++j) {
+            patientTrajectory.Set(j, Napi::Number::New(env, control_pop[i].log10V[j]));
+        }
+        jsControlVL.Set(i, patientTrajectory);
     }
 
-    // 2. Run Treated Arm
+    // 2. Run Treated 
     pop_params.sample_size = treated_n;
     pop_params.is_control = false;
     std::vector<IndividualResults> treated_pop;
@@ -136,13 +131,86 @@ Napi::Value ModelPopulationWrapped(const Napi::CallbackInfo& info) {
 
     Napi::Array jsTreatedVL = Napi::Array::New(env, treated_pop.size());
     for (size_t i = 0; i < treated_pop.size(); ++i) {
-        double vl = treated_pop[i].log10V.empty() ? 0.0 : treated_pop[i].log10V.back();
-        jsTreatedVL.Set(i, Napi::Number::New(env, vl));
+        Napi::Array patientTrajectory = Napi::Array::New(env, treated_pop[i].log10V.size());
+        for (size_t j = 0; j < treated_pop[i].log10V.size(); ++j) {
+            patientTrajectory.Set(j, Napi::Number::New(env, treated_pop[i].log10V[j]));
+        }
+        jsTreatedVL.Set(i, patientTrajectory);
     }
 
     Napi::Object response = Napi::Object::New(env);
     response.Set("control", jsControlVL);
     response.Set("treated", jsTreatedVL);
+    return response;
+}
+
+Napi::Value ModelTrialWrapped(const Napi::CallbackInfo& info){
+    Napi::Env env = info.Env();
+
+    if (info.Length() < 1 || !info[0].IsObject()) {
+        Napi::TypeError::New(env, "Object expected for population parameters").ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
+    Napi::Object inputParams = info[0].As<Napi::Object>();
+    PopulationParamaters pop_params = ParsesPopulationParams(inputParams);
+
+    int runs = inputParams.Get("runs").As<Napi::Number>().Int32Value();
+    int control_n = inputParams.Get("control_sample_size").As<Napi::Number>().Int32Value();
+    int treated_n = inputParams.Get("treatment_sample_size").As<Napi::Number>().Int32Value();
+
+    Napi::Array jsControlRuns = Napi::Array::New(env, runs);
+    Napi::Array jsTreatedRuns = Napi::Array::New(env, runs);
+
+    for (int r = 0; r < runs; ++r) {
+        // --- 1. Run Control Group ---
+        pop_params.sample_size = control_n;
+        pop_params.is_control = true;
+        std::vector<IndividualResults> control_pop;
+        ModelPopulation(pop_params, control_pop);
+
+        if (!control_pop.empty() && !control_pop[0].log10V.empty()) {
+            size_t num_days = control_pop[0].log10V.size();
+            Napi::Array avgTrajectory = Napi::Array::New(env, num_days);
+
+            for (size_t day = 0; day < num_days; ++day) {
+                double day_sum = 0.0;
+                for (size_t i = 0; i < control_pop.size(); ++i) {
+                    day_sum += control_pop[i].log10V[day];
+                }
+                avgTrajectory.Set(day, Napi::Number::New(env, day_sum / control_pop.size()));
+            }
+            jsControlRuns.Set(r, avgTrajectory);
+        } else {
+            jsControlRuns.Set(r, Napi::Array::New(env, 0));
+        }
+
+        // --- 2. Run Treated Group ---
+        pop_params.sample_size = treated_n;
+        pop_params.is_control = false;
+        std::vector<IndividualResults> treated_pop;
+        ModelPopulation(pop_params, treated_pop);
+
+        if (!treated_pop.empty() && !treated_pop[0].log10V.empty()) {
+            size_t num_days = treated_pop[0].log10V.size();
+            Napi::Array avgTrajectory = Napi::Array::New(env, num_days);
+
+            for (size_t day = 0; day < num_days; ++day) {
+                double day_sum = 0.0;
+                for (size_t i = 0; i < treated_pop.size(); ++i) {
+                    day_sum += treated_pop[i].log10V[day];
+                }
+                avgTrajectory.Set(day, Napi::Number::New(env, day_sum / treated_pop.size()));
+            }
+            jsTreatedRuns.Set(r, avgTrajectory);
+        } else {
+            jsTreatedRuns.Set(r, Napi::Array::New(env, 0));
+        }
+    }
+
+    Napi::Object response = Napi::Object::New(env);
+    response.Set("control", jsControlRuns);
+    response.Set("treated", jsTreatedRuns);
     return response;
 }
 
@@ -156,6 +224,11 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set(
         Napi::String::New(env, "modelPopulation"),
         Napi::Function::New(env, ModelPopulationWrapped)
+    );
+
+    exports.Set(
+        Napi::String::New(env, "modelTrial"),
+        Napi::Function::New(env, ModelTrialWrapped)
     );
 
     return exports;

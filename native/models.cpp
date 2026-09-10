@@ -79,18 +79,40 @@ static int f(sunrealtype t, N_Vector x, N_Vector dxdt, void* user_data) {
 }
 
 // Function for Simulating Individual System
-void ModelIndividual(const IndividualParamaters& parameters,
+bool ModelIndividual(const IndividualParamaters& parameters,
     IndividualResults& results) 
     {
-    SUNContext sunctx;
-    int retval;
+    SUNContext sunctx = nullptr;
+    UserData sys = nullptr;
+    N_Vector x = nullptr;
+    void* cvode_mem = nullptr;
+    SUNMatrix A = nullptr;
+    SUNLinearSolver LS = nullptr;
+
+    struct ScopeGuard {
+        SUNContext* sunctx;
+        UserData* sys;
+        N_Vector* x;
+        void** cvode_mem;
+        SUNMatrix* A;
+        SUNLinearSolver* LS;
+
+        ~ScopeGuard() {
+            if (*LS)        { SUNLinSolFree(*LS); *LS = nullptr; }
+            if (*A)         { SUNMatDestroy(*A);  *A = nullptr; }
+            if (*cvode_mem) { CVodeFree(cvode_mem); }
+            if (*x)         { N_VDestroy(*x);     *x = nullptr; }
+            if (*sys)       { free(*sys);         *sys = nullptr; }
+            if (*sunctx)    { SUNContext_Free(sunctx); }
+        }
+    } guard{&sunctx, &sys, &x, &cvode_mem, &A, &LS};
 
     // 1. Initialize SUNDIALS Context
-    retval = SUNContext_Create(SUN_COMM_NULL, &sunctx);
-    if (check_retval(retval, "SUNContext_Create")) return;
+    int retval = SUNContext_Create(SUN_COMM_NULL, &sunctx);
+    if (check_retval(retval, "SUNContext_Create")) return false;
 
     // 2. Configure System Parameters
-    UserData sys = (UserData)malloc(sizeof(*sys));
+    sys = (UserData)malloc(sizeof(*sys));
     sys->t_dose_start = parameters.t_sigma;
     sys->t_dose_end   = parameters.t_sigma + parameters.dosing_duration - parameters.dt;
 
@@ -114,8 +136,8 @@ void ModelIndividual(const IndividualParamaters& parameters,
     sys->hill_n = 3.16;  
 
     // 3. Initial State Vector Setup
-    N_Vector x = N_VNew_Serial(NEQ, sunctx);
-    if (check_retval(SUNContext_GetLastError(sunctx), "N_VNew_Serial")) return;
+    x = N_VNew_Serial(NEQ, sunctx);
+    if (check_retval(SUNContext_GetLastError(sunctx), "N_VNew_Serial")) return false;
     
     sunrealtype *x_data = N_VGetArrayPointer(x);
     for(int i = 0; i < NEQ; i++) x_data[i] = 0.0;
@@ -123,27 +145,27 @@ void ModelIndividual(const IndividualParamaters& parameters,
     x_data[4] = 1.0;  // V
 
     // 4. CVODE Setup (using CV_BDF)
-    void* cvode_mem = CVodeCreate(CV_BDF, sunctx);
-    if (check_retval(SUNContext_GetLastError(sunctx), "CVodeCreate")) return;
+    cvode_mem = CVodeCreate(CV_BDF, sunctx);
+    if (check_retval(SUNContext_GetLastError(sunctx), "CVodeCreate")) return false;
 
     retval = CVodeInit(cvode_mem, f, 0.0, x);
-    check_retval(retval, "CVodeInit");
+    if (check_retval(retval, "CVodeInit")) return false;
 
     retval = CVodeSStolerances(cvode_mem, 1e-6, 1e-8); // RelTol and AbsTol
-    check_retval(retval, "CVodeSStolerances");
+    if (check_retval(retval, "CVodeSStolerances")) return false;
 
     retval = CVodeSetUserData(cvode_mem, sys);
-    check_retval(retval, "CVodeSetUserData");
+    if (check_retval(retval, "CVodeSetUserData")) return false;
 
     // 5. Dense Matrix and Linear Solver setup (Jacobian matrix)
-    SUNMatrix A = SUNDenseMatrix(NEQ, NEQ, sunctx);
-    check_retval(SUNContext_GetLastError(sunctx), "SUNDenseMatrix");
+    A = SUNDenseMatrix(NEQ, NEQ, sunctx);
+    if (check_retval(SUNContext_GetLastError(sunctx), "SUNDenseMatrix")) return false;
 
-    SUNLinearSolver LS = SUNLinSol_Dense(x, A, sunctx);
-    check_retval(SUNContext_GetLastError(sunctx), "SUNLinSol_Dense");
+    LS = SUNLinSol_Dense(x, A, sunctx);
+    if (check_retval(SUNContext_GetLastError(sunctx), "SUNLinSol_Dense")) return false;
 
     retval = CVodeSetLinearSolver(cvode_mem, LS, A);
-    check_retval(retval, "CVodeSetLinearSolver");
+    if (check_retval(retval, "CVodeSetLinearSolver")) return false;
 
     // 6. Integration Loop
     sunrealtype t_ret = 0.0;
@@ -168,7 +190,7 @@ void ModelIndividual(const IndividualParamaters& parameters,
 
             if (retval != CV_SUCCESS && retval != CV_TSTOP_RETURN) {
                 check_retval(retval, "CVode");
-                break;
+                return false;
             }
         }
 
@@ -182,14 +204,18 @@ void ModelIndividual(const IndividualParamaters& parameters,
                 
                 // Re-initialize CVODE after state is manually modified
                 retval = CVodeReInit(cvode_mem, t_out, x);
-                check_retval(retval, "CVodeReInit");
+                if (check_retval(retval, "CVodeReInit")){
+                    return false;
+                };
             }
         }
 
         // Set efficacy to 0 and re-initialize solver 
         if (!parameters.is_control && std::abs(t_out - (sys->t_dose_end)) < 1e-6) {
             retval = CVodeReInit(cvode_mem, t_out, x);
-            check_retval(retval, "CVodeReInit (Cessation)");
+            if (check_retval(retval, "CVodeReInit")){
+                return false;
+            }
 
             // Extend stop time to simulation end
             CVodeSetStopTime(cvode_mem, parameters.t_max);
@@ -197,6 +223,8 @@ void ModelIndividual(const IndividualParamaters& parameters,
 
         // Save results
         float t = static_cast<float>(t_out);
+
+        if (x_data[4] <= 0.0 || std::isnan(x_data[4])) return false; // Drop results where V <= 0 or NaN
         double log10V = std::log10(x_data[4]);
 
         results.t.emplace_back(t);
@@ -216,16 +244,9 @@ void ModelIndividual(const IndividualParamaters& parameters,
             results.C_P_uM.emplace_back(C_P_uM);
             results.epsilon.emplace_back(epsilon);
         }
-
     }
 
-    // 7. Memory Cleanup
-    N_VDestroy(x);
-    CVodeFree(&cvode_mem);
-    SUNLinSolFree(LS);
-    SUNMatDestroy(A);
-    free(sys);
-    SUNContext_Free(&sunctx);
+    return true;
 }
 
 // Private function for truncated normal sampling (+- n * sd)
@@ -311,8 +332,8 @@ void ModelPopulation(const PopulationParamaters& population_parameters,
         individual.t_sigma = std::round(incubation_period + psi);
 
         IndividualResults individual_results;
-        ModelIndividual(individual, individual_results);
+        bool success = ModelIndividual(individual, individual_results);
 
-        population_results.push_back(std::move(individual_results));
+        if (success) population_results.push_back(std::move(individual_results));
     }
 }

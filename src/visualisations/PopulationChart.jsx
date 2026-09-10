@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 
 // Standard IQR Box Plot calculation with Tukey outlier detection
 function calculateBoxPlotStats(data) {
@@ -22,9 +22,8 @@ function calculateBoxPlotStats(data) {
   const lowerThreshold = q1 - 1.5 * iqr;
   const upperThreshold = q3 + 1.5 * iqr;
 
-  const validVals = sorted.filter((v) => v >= lowerThreshold && v <= upperThreshold);
-  const whiskerMin = validVals.length > 0 ? validVals[0] : sorted[0];
-  const whiskerMax = validVals.length > 0 ? validVals[validVals.length - 1] : sorted[sorted.length - 1];
+  const whiskerMin = sorted.find((v) => v >= lowerThreshold) ?? sorted[0];
+  const whiskerMax = [...sorted].reverse().find((v) => v <= upperThreshold) ?? sorted[sorted.length - 1];
 
   return { q1, median, q3, whiskerMin, whiskerMax };
 }
@@ -35,40 +34,123 @@ function pseudoRandom(seed) {
   return x - Math.floor(x);
 }
 
-export default function PopulationChart({ results }) {
-  if (!results || (!results.control && !results.treated)) {
-    return (
-      <div style={{ height: '380px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888' }}>
-        Run simulation to generate viral load comparison
-      </div>
-    );
-  }
+function kernelDensityEstimator(kernel, X) {
+  return function (V) {
+    return X.map((x) => [
+      x,
+      (1 / V.length) * V.reduce((acc, v) => acc + kernel(x - v), 0),
+    ]);
+  };
+}
 
-  const controlData = results.control || [];
-  const treatedData = results.treated || [];
+function gaussian(bandwidth) {
+  const c = 1 / (bandwidth * Math.sqrt(2 * Math.PI));
+  return function (u) {
+    const z = u / bandwidth;
+    return c * Math.exp(-0.5 * z * z);
+  };
+}
+
+export default function PopulationChart({ results }) {
+  const [selectedDay, setSelectedDay] = useState(7);
+  const dt = results?.dt ?? results?.inputParams?.dt ?? 0.1;
+
+  // Layout Dimensions
+  // Map each patient's trajectory to the value at selectedDay
+  const controlData = useMemo(() => {
+    const stepIdx = Math.round(selectedDay / dt);
+    return (results?.control || []).map(traj => 
+      Array.isArray(traj) ? (traj[stepIdx] ?? traj[traj.length - 1]) : traj
+    );
+  }, [results?.control, selectedDay, dt]);
+
+  const treatedData = useMemo(() => {
+    const stepIdx = Math.round(selectedDay / dt);
+    return (results?.treated || []).map(traj => 
+      Array.isArray(traj) ? (traj[stepIdx] ?? traj[traj.length - 1]) : traj
+    );
+  }, [results?.treated, selectedDay, dt]);
 
   const controlStats = useMemo(() => calculateBoxPlotStats(controlData), [controlData]);
   const treatedStats = useMemo(() => calculateBoxPlotStats(treatedData), [treatedData]);
 
+  if (controlData.length === 0 || treatedData.length === 0) {
+    return(
+      <div style={{ marginTop: '1.5rem' }}>
+        <h3>Results</h3>
+          <div
+            style={{
+              background: '#f4f4f4',
+              padding: '1.5rem',
+              textAlign: 'center',
+              color: '#666',
+              borderRadius: '4px'
+            }}
+          >
+            No simulation run yet.
+          </div>
+      </div>
+    )
+  }
+
   const width = 800;
   const height = 380;
   const margin = { top: 75, right: 80, bottom: 60, left: 90 };
+  const plotWidth = width - margin.left - margin.right;
 
+  // Dynamix Y-Axis Bounds
   const allVals = [...controlData, ...treatedData];
   const dataMin = allVals.length ? Math.min(...allVals) : 2.5;
   const dataMax = allVals.length ? Math.max(...allVals) : 4.5;
 
   const yMin = Math.floor(dataMin * 2) / 2;
-  const yMax = Math.ceil(dataMax * 2) / 2;
+  const yMax = Math.max(Math.ceil(dataMax * 2) / 2, yMin + 0.5);
 
   const scaleY = (val) => {
     return height - margin.bottom - ((val - yMin) / (yMax - yMin)) * (height - margin.top - margin.bottom);
   };
 
-  const renderGroup = (data, stats, centerX, boxFillColor, label) => {
+  // KDE Computation
+  const sampleCount = 120;
+  const generateSteps = (min, max) => {
+    const step = (max - min) / sampleCount;
+    return Array.from({ length: sampleCount + 1 }, (_, i) => min + i * step);
+  };
+
+  const kdeCtrl = kernelDensityEstimator(
+    gaussian(0.12),
+    generateSteps(Math.min(...controlData), Math.max(...controlData))
+  )(controlData);
+
+  const kdeTrt = kernelDensityEstimator(
+    gaussian(0.12),
+    generateSteps(Math.min(...treatedData), Math.max(...treatedData))
+  )(treatedData);
+
+  const maxDensity = Math.max(
+    ...kdeCtrl.map((d) => d[1]),
+    ...kdeTrt.map((d) => d[1])
+  );
+
+  const maxViolinWidth = 75;
+
+  const makeViolinPath = (kdeData, centerX) => {
+    if (!kdeData.length) return '';
+    const points = kdeData.map(([yVal, density]) => {
+      const pxOffset = (density / maxDensity) * maxViolinWidth;
+      return `${centerX + pxOffset},${scaleY(yVal)}`;
+    });
+
+    const topY = scaleY(kdeData[kdeData.length - 1][0]);
+    const bottomY = scaleY(kdeData[0][0]);
+
+    return `M ${centerX},${bottomY} L ${points.join(' L ')} L ${centerX},${topY} Z`;
+  };
+
+  const renderGroup = (data, stats, kdeData, centerX, violinColor, boxFillColor, label) => {
     if (!stats) return null;
 
-    const boxWidth = 28;
+    const boxWidth = 24;
     const yTop = scaleY(stats.q3);
     const yBottom = scaleY(stats.q1);
     const yMed = scaleY(stats.median);
@@ -77,10 +159,18 @@ export default function PopulationChart({ results }) {
 
     return (
       <g>
+        {/* Half-Violin */}
+        <path
+          d={makeViolinPath(kdeData, centerX)}
+          fill={violinColor}
+          stroke="none"
+          opacity={0.85}
+        />
+
         {/* Jittered Scatter Points (positioned left of the box) */}
         {data.map((val, idx) => {
           // Jitter spread between -35px and -8px left of centerX
-          const jitterX = centerX - 8 - pseudoRandom(idx * 7.91) * 28;
+          const jitterX = centerX - 10 - pseudoRandom(idx * 7.91) * 32;
           const cy = scaleY(val);
           return (
             <circle
@@ -121,7 +211,7 @@ export default function PopulationChart({ results }) {
 
         {/* Group Label */}
         <text
-          x={centerX - 10}
+          x={centerX}
           y={height - margin.bottom + 25}
           textAnchor="middle"
           fontSize="13"
@@ -140,6 +230,7 @@ export default function PopulationChart({ results }) {
   }
 
   return (
+    <div>
     <div style={{ display: 'inline-block', fontFamily: 'sans-serif' }}>
       <svg width={width} height={height} style={{ background: '#fff' }}>
         {/* Horizontal Gridlines & Y-Axis Labels */}
@@ -161,8 +252,8 @@ export default function PopulationChart({ results }) {
           y={20}
           transform="rotate(-90)"
           textAnchor="middle"
-          fontSize="13"
-          fontWeight="600"
+          fontSize="14"
+          fontWeight="bold"
           fill="#111"
         >
           log₁₀ Viral Load
@@ -173,17 +264,36 @@ export default function PopulationChart({ results }) {
           x={margin.left + (width - margin.left - margin.right) / 2}
           y={height - 12}
           textAnchor="middle"
-          fontSize="13"
-          fontWeight="600"
+          fontSize="14"
+          fontWeight="bold"
           fill="#111"
         >
           Intervention Group
         </text>
 
         {/* Data Groups */}
-        {renderGroup(controlData, controlStats, 175, 'rgba(255, 255, 255, 0.9)', 'Control')}
-        {renderGroup(treatedData, treatedStats, 345, 'rgba(255, 255, 255, 0.9)', 'Treatment')}
+        {renderGroup(controlData, controlStats, kdeCtrl, 
+          margin.left + plotWidth * 0.25, '#0E7382', '#0E7382', 'Control')}
+        {renderGroup(treatedData, treatedStats, kdeTrt, margin.left + plotWidth * 0.75
+          , '#86CCD5', '#86CCD5', 'Treatment')}
       </svg>
     </div>
+
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '1rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#555' }}>
+        <span>Day: <strong>{selectedDay}</strong></span>
+        <span>Day 30</span>
+      </div>
+      <input
+        type="range"
+        min="0"
+        max="30"
+        step="1"
+        value={selectedDay}
+        onChange={(e) => setSelectedDay(Number(e.target.value))}
+        style={{ width: '100%', cursor: 'pointer' }}
+      />
+    </div>
+   </div>
   );
 }

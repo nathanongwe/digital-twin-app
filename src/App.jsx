@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import IndividualSimulation from './components/IndividualSimulation';
 import PopulationSimulation from './components/PopulationSimulation';
+import TrialSimulation from './components/TrialSimulation';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('individual'); // 'individual' | 'population'
@@ -26,6 +27,7 @@ export default function App() {
           >
             Individual Modelling
           </button>
+
           <button
             onClick={() => setActiveTab('population')}
             style={{
@@ -39,6 +41,20 @@ export default function App() {
           >
             Population Modelling
           </button>
+
+          <button
+            onClick={() => setActiveTab('trial')}
+            style={{
+              padding: '0.5rem 1rem',
+              fontWeight: activeTab === 'trial' ? 'bold' : 'normal',
+              background: activeTab === 'trial' ? '#e0e0e0' : 'white',
+              border: '1px solid #ccc',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+          >
+            Clinical Trial Modelling
+          </button>
         </div>
       </div>
 
@@ -47,6 +63,7 @@ export default function App() {
       {/* Conditional View Rendering */}
       {activeTab === 'individual' && <IndividualSimulation />}
       {activeTab === 'population' && <PopulationSimulation />}
+      {activeTab === 'trial' && <TrialSimulation />}
     </div>
   );
 }
