@@ -4,12 +4,15 @@
       "target_name": "simulation_addon",
       "sources": [ 
         "native/addon.cc", 
-        "native/models.cpp" 
+        "native/models.cpp",
+        "native/ancova_analysis.cpp",
+        "native/auc_analysis.cpp"
       ],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")",
         "native",
-        "C:/vcpkg/installed/x64-windows-static/include"
+        "C:/vcpkg/installed/x64-windows-static/include",
+        "C:/vcpkg/installed/x64-windows-static/include/eigen3"
       ],
       "dependencies": [
         "<!(node -p \"require('node-addon-api').gyp\")"
@@ -18,7 +21,8 @@
       "msvs_settings": {
         "VCCLCompilerTool": {
           "ExceptionHandling": 1,
-          "AdditionalOptions": [ "/EHsc" ]
+          "OpenMPSupport": "true",
+          "AdditionalOptions": [ "/EHsc", "/openmp", "/std:c++20" ]
         }
       },
       "conditions": [

@@ -1,5 +1,33 @@
 import { useState } from 'react';
-import PopulationChart from '../visualisations/PopulationChart';
+import AncovaSummary from '../visualisations/AncovaSummary';
+import AucSummary from '../visualisations/AucSummary';
+
+const TABS = [
+  { key: 'day3', label: 'Viral Load Day 3' },
+  { key: 'day5', label: 'Viral Load Day 5' },
+  { key: 'change', label: 'Change in Viral Load' },
+  { key: 'auc', label: 'AUC' },
+  { key: 'clearance', label: 'Viral Clearance Rate' },
+];
+
+const ANCOVA_KEYS = ['day3', 'day5', 'change'];
+
+function Placeholder({ label }) {
+  return (
+    <div
+      style={{
+        padding: '1.5rem',
+        textAlign: 'center',
+        color: '#6b7280',
+        background: '#f9fafb',
+        border: '1px solid #e5e7eb',
+        borderRadius: '6px',
+      }}
+    >
+      {label} analysis is not yet available.
+    </div>
+  );
+}
 
 const DEFAULT_TRIAL_PARAMS = {
   runs: 100,
@@ -19,6 +47,7 @@ export default function TrialApp() {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('day3');
 
   const handleParamChange = (name, rawValue) => {
     if (rawValue === '') {
@@ -39,7 +68,7 @@ export default function TrialApp() {
     setLoading(true);
 
     try {
-      if (window.electronAPI?.runPopulationModel) {
+      if (window.electronAPI?.runTrialModel) {
         const data = await window.electronAPI.runTrialModel(params);
         setResults(data);
       } else {
@@ -222,9 +251,43 @@ export default function TrialApp() {
           {error && <p style={{ color: 'red', marginTop: '1rem' }}>Error: {error}</p>}
         </div>
 
-        {/* Right Column: Chart Component */}
+        {/* Right Column: Tab Bar & Content */}
         <div style={{ flex: '1 1 0', minWidth: '400px' }}>
-          <PopulationChart results={results} />
+          {/* Tab Controls */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+            {TABS.map((tab) => {
+              const active = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key)}
+                  style={{
+                    padding: '0.4rem 0.8rem',
+                    cursor: 'pointer',
+                    borderRadius: '4px',
+                    border: '1px solid #d1d5db',
+                    background: active ? '#111827' : '#fff',
+                    color: active ? '#fff' : '#111827',
+                    fontWeight: 500,
+                  }}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active View */}
+          <div style={{ minHeight: '120px' }}>
+            {ANCOVA_KEYS.includes(activeTab) ? (
+              <AncovaSummary runs={results?.[activeTab]} />
+            ) : activeTab === 'auc' ? (
+              <AucSummary runs={results?.auc} />
+            ) : (
+              <Placeholder label={TABS.find((t) => t.key === activeTab)?.label} />
+            )}
+          </div>
         </div>
       </div>
     </div>

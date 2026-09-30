@@ -1,10 +1,9 @@
 #include "models.hpp"
 
 #include <cmath>
-#include <vector>
 #include <iostream>
-#include <random>
 #include <algorithm>
+#include <array>
 
 #include <cvode/cvode.h>
 #include <nvector/nvector_serial.h>
@@ -78,10 +77,34 @@ static int f(sunrealtype t, N_Vector x, N_Vector dxdt, void* user_data) {
     return 0;
 }
 
-// Function for Simulating Individual System
+// Function for creating RNG
+static std::mt19937 create_seeded_engine() {
+    // 624 words = 19,937 bits of initial state
+    std::array<std::uint_least32_t, std::mt19937::state_size> seed_data;
+    std::random_device rd;
+    
+    std::generate(seed_data.begin(), seed_data.end(), std::ref(rd));
+    std::seed_seq seq(seed_data.begin(), seed_data.end());
+    
+    return std::mt19937(seq);
+}
+
+// Functions for Simulating Individual System
 bool ModelIndividual(const IndividualParamaters& parameters,
-    IndividualResults& results) 
-    {
+    IndividualResults& results){
+        
+    std::mt19937 rng = create_seeded_engine();
+
+    return ModelIndividual(parameters, results, rng);
+}
+
+bool ModelIndividual(const IndividualParamaters& parameters,
+    IndividualResults& results, std::mt19937& rng){
+    results.t_sigma = parameters.t_sigma;
+    results.dt = parameters.dt;
+
+    std::normal_distribution<double> error_dist(0, 1.17); // Normal distribution for error term
+
     SUNContext sunctx = nullptr;
     UserData sys = nullptr;
     N_Vector x = nullptr;
@@ -225,10 +248,12 @@ bool ModelIndividual(const IndividualParamaters& parameters,
         float t = static_cast<float>(t_out);
 
         if (x_data[4] <= 0.0 || std::isnan(x_data[4])) return false; // Drop results where V <= 0 or NaN
+        
         double log10V = std::log10(x_data[4]);
-
-        results.t.emplace_back(t);
         results.log10V.emplace_back(log10V);
+
+        double error_term = error_dist(rng);
+        results.log10V_observed.emplace_back(log10V + error_term);
 
         if (!parameters.is_control)
         {
@@ -242,7 +267,6 @@ bool ModelIndividual(const IndividualParamaters& parameters,
             }
 
             results.C_P_uM.emplace_back(C_P_uM);
-            results.epsilon.emplace_back(epsilon);
         }
     }
 
@@ -271,7 +295,7 @@ void ModelPopulation(const PopulationParamaters& population_parameters,
     population_results.reserve(population_parameters.sample_size);
 
     std::random_device rd;
-    std::mt19937 rng(rd());
+    std::mt19937 rng = create_seeded_engine();
 
     constexpr double infectivity_rate_mean = -7.24;
     constexpr double infectivity_rate_sd = 0.248;
@@ -321,18 +345,25 @@ void ModelPopulation(const PopulationParamaters& population_parameters,
         individual.productive_to_refractory_rate = SampleTruncatedNormal(rng, productive_to_refractory_rate_mean, productive_to_refractory_rate_sd);
         individual.refractory_reversion_rate     = SampleTruncatedNormal(rng, refractory_reversion_rate_mean, refractory_reversion_rate_sd);
         individual.productive_clearance_rate     = SampleTruncatedNormal(rng, productive_clearance_rate_mean, productive_clearance_rate_sd);
-        individual.IC50                         = SampleTruncatedNormal(rng, ec50_mean, ec50_sd);
+        
+        do {
+            individual.IC50 = SampleTruncatedNormal(rng, ec50_mean, ec50_sd);
+        } while (individual.IC50 <= 0.0); 
 
         double incubation_period = incubation_period_dist(rng);
-        double psi; // Time from symptom onset to randomisation
+        double t_psi; // Time from symptom onset to randomisation
         do {
-            psi = psi_dist(rng);
-        } while ((psi < 0.0) || (psi > population_parameters.t_psi_max)); // Ensure non-negative symptom-to-randomization time
+            t_psi = psi_dist(rng);
+        } while ((t_psi < 0.0) || (t_psi > population_parameters.t_psi_max)); // Ensure non-negative symptom-to-randomization time
 
-        individual.t_sigma = std::round(incubation_period + psi);
+        individual.t_sigma = std::round(incubation_period + t_psi);
 
         IndividualResults individual_results;
-        bool success = ModelIndividual(individual, individual_results);
+        individual_results.age = age;
+        individual_results.t_psi = t_psi;
+
+
+        bool success = ModelIndividual(individual, individual_results, rng);
 
         if (success) population_results.push_back(std::move(individual_results));
     }

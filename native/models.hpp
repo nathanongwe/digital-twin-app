@@ -1,4 +1,7 @@
+#pragma once
+
 #include <vector>
+#include <random>
 
 // Struct for storing Individual Modelling Parameters
 struct IndividualParamaters{
@@ -21,25 +24,32 @@ struct IndividualParamaters{
 
 // Struct for storing Individual Modelling Results
 struct IndividualResults{
-    std::vector<float> t;
+    double t_sigma;
+    double dt;
+
+    // Only assigned in ModelPopulation() for endpoint analysis
+    int age; 
+    double t_psi; // Time from symptom onset to randomisation
+
     std::vector<double> log10V;
+    std::vector<double> log10V_observed;
     
     std::vector<double> C_P_uM;
-    std::vector<double> epsilon;
 
     void init(size_t expected_steps, bool is_control) {
-        t.reserve(expected_steps);
         log10V.reserve(expected_steps);
+        log10V_observed.reserve(expected_steps);
         if (!is_control) {
             C_P_uM.reserve(expected_steps);
-            epsilon.reserve(expected_steps);
         }
     }
 };
 
 bool ModelIndividual(const IndividualParamaters& parameters,
-    IndividualResults& results
-);
+    IndividualResults& results);
+
+bool ModelIndividual(const IndividualParamaters& parameters,
+    IndividualResults& results, std::mt19937& rng);
 
 
 // Struct for storing Population Modelling Parameters

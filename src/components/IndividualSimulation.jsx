@@ -57,6 +57,10 @@ function getParamConfigs(age, vaccinated) {
     };
   }
 
+  if (configs.IC50.min <= 0){
+    configs.IC50.min = 0.001;
+  }
+
   return configs;
 }
 

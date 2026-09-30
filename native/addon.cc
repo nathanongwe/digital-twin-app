@@ -1,6 +1,7 @@
 #include <napi.h>
 #include <vector>
 #include "models.hpp"
+#include "trial_worker.hpp"
 #include <iostream>
 
 // Helper to parse JS object into IndividualParamaters struct
@@ -40,13 +41,13 @@ Napi::Value ModelIndividualWrapped(const Napi::CallbackInfo& info) {
     IndividualResults treated_results;
     ModelIndividual(treated_params, treated_results);
 
-    Napi::Array jsTreated = Napi::Array::New(env, treated_results.t.size());
-    for (size_t i = 0; i < treated_results.t.size(); ++i) {
+    Napi::Array jsTreated = Napi::Array::New(env, treated_results.log10V.size());
+    for (size_t i = 0; i < treated_results.log10V.size(); ++i) {
         Napi::Object entry = Napi::Object::New(env);
-        entry.Set("t", Napi::Number::New(env, treated_results.t[i]));
+        entry.Set("t", Napi::Number::New(env, i * treated_results.dt));
         entry.Set("log10V", Napi::Number::New(env, treated_results.log10V[i]));
         entry.Set("C_P_uM", Napi::Number::New(env, treated_results.C_P_uM[i]));
-        entry.Set("epsilon", Napi::Number::New(env, treated_results.epsilon[i]));
+        entry.Set("log10V_observed", Napi::Number::New(env, treated_results.log10V_observed[i]));
         jsTreated.Set(i, entry);
     }
 
@@ -57,10 +58,10 @@ Napi::Value ModelIndividualWrapped(const Napi::CallbackInfo& info) {
     IndividualResults control_results;
     ModelIndividual(control_params, control_results);
 
-    Napi::Array jsControl = Napi::Array::New(env, control_results.t.size());
-    for (size_t i = 0; i < control_results.t.size(); ++i) {
+    Napi::Array jsControl = Napi::Array::New(env, control_results.log10V.size());
+    for (size_t i = 0; i < control_results.log10V.size(); ++i) {
         Napi::Object entry = Napi::Object::New(env);
-        entry.Set("t", Napi::Number::New(env, control_results.t[i]));
+        entry.Set("t", Napi::Number::New(env, i * control_results.dt));
         entry.Set("log10V", Napi::Number::New(env, control_results.log10V[i]));
         jsControl.Set(i, entry);
     }
@@ -146,12 +147,6 @@ Napi::Value ModelPopulationWrapped(const Napi::CallbackInfo& info) {
 
 Napi::Value ModelTrialWrapped(const Napi::CallbackInfo& info){
     Napi::Env env = info.Env();
-
-    if (info.Length() < 1 || !info[0].IsObject()) {
-        Napi::TypeError::New(env, "Object expected for population parameters").ThrowAsJavaScriptException();
-        return env.Null();
-    }
-
     Napi::Object inputParams = info[0].As<Napi::Object>();
     PopulationParamaters pop_params = ParsesPopulationParams(inputParams);
 
@@ -159,59 +154,11 @@ Napi::Value ModelTrialWrapped(const Napi::CallbackInfo& info){
     int control_n = inputParams.Get("control_sample_size").As<Napi::Number>().Int32Value();
     int treated_n = inputParams.Get("treatment_sample_size").As<Napi::Number>().Int32Value();
 
-    Napi::Array jsControlRuns = Napi::Array::New(env, runs);
-    Napi::Array jsTreatedRuns = Napi::Array::New(env, runs);
+    auto* worker = new TrialWorker(env, pop_params, runs, control_n, treated_n);
+    auto promise = worker->GetPromise();
+    worker->Queue();
 
-    for (int r = 0; r < runs; ++r) {
-        // --- 1. Run Control Group ---
-        pop_params.sample_size = control_n;
-        pop_params.is_control = true;
-        std::vector<IndividualResults> control_pop;
-        ModelPopulation(pop_params, control_pop);
-
-        if (!control_pop.empty() && !control_pop[0].log10V.empty()) {
-            size_t num_days = control_pop[0].log10V.size();
-            Napi::Array avgTrajectory = Napi::Array::New(env, num_days);
-
-            for (size_t day = 0; day < num_days; ++day) {
-                double day_sum = 0.0;
-                for (size_t i = 0; i < control_pop.size(); ++i) {
-                    day_sum += control_pop[i].log10V[day];
-                }
-                avgTrajectory.Set(day, Napi::Number::New(env, day_sum / control_pop.size()));
-            }
-            jsControlRuns.Set(r, avgTrajectory);
-        } else {
-            jsControlRuns.Set(r, Napi::Array::New(env, 0));
-        }
-
-        // --- 2. Run Treated Group ---
-        pop_params.sample_size = treated_n;
-        pop_params.is_control = false;
-        std::vector<IndividualResults> treated_pop;
-        ModelPopulation(pop_params, treated_pop);
-
-        if (!treated_pop.empty() && !treated_pop[0].log10V.empty()) {
-            size_t num_days = treated_pop[0].log10V.size();
-            Napi::Array avgTrajectory = Napi::Array::New(env, num_days);
-
-            for (size_t day = 0; day < num_days; ++day) {
-                double day_sum = 0.0;
-                for (size_t i = 0; i < treated_pop.size(); ++i) {
-                    day_sum += treated_pop[i].log10V[day];
-                }
-                avgTrajectory.Set(day, Napi::Number::New(env, day_sum / treated_pop.size()));
-            }
-            jsTreatedRuns.Set(r, avgTrajectory);
-        } else {
-            jsTreatedRuns.Set(r, Napi::Array::New(env, 0));
-        }
-    }
-
-    Napi::Object response = Napi::Object::New(env);
-    response.Set("control", jsControlRuns);
-    response.Set("treated", jsTreatedRuns);
-    return response;
+    return promise;
 }
 
 // Module initialization

@@ -51,6 +51,30 @@ function gaussian(bandwidth) {
   };
 }
 
+function standardDeviation(arr) {
+  if (arr.length <= 1) return 0;
+  const mean = arr.reduce((sum, v) => sum + v, 0) / arr.length;
+  const variance = arr.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / (arr.length - 1);
+  return Math.sqrt(variance);
+}
+
+function silvermanBandwidth(data, stats) {
+  const n = data.length;
+  if (n <= 1) return 0.1;
+
+  const sd = standardDeviation(data);
+  const iqr = stats ? (stats.q3 - stats.q1) : 0;
+  
+  // Use IQR/1.34 if valid; fall back to standard deviation
+  const spread = (iqr > 0 && sd > 0) 
+    ? Math.min(sd, iqr / 1.34) 
+    : (sd || 0.1);
+
+  // Fallback if data points have near-zero variance
+  const bw = 0.9 * spread * Math.pow(n, -0.2);
+  return Math.max(bw, 0.01);
+}
+
 export default function PopulationChart({ results }) {
   const [selectedDay, setSelectedDay] = useState(7);
   const dt = results?.dt ?? results?.inputParams?.dt ?? 0.1;
@@ -117,14 +141,26 @@ export default function PopulationChart({ results }) {
     return Array.from({ length: sampleCount + 1 }, (_, i) => min + i * step);
   };
 
+    // Calculate dynamic bandwidth for Control
+  const bwCtrl = silvermanBandwidth(controlData, controlStats);
+  const padCtrl = bwCtrl * 3.5; // Pad 3.5 bandwidths so tails taper to 0
+  const minCtrl = Math.min(...controlData) - padCtrl;
+  const maxCtrl = Math.max(...controlData) + padCtrl;
+
   const kdeCtrl = kernelDensityEstimator(
-    gaussian(0.12),
-    generateSteps(Math.min(...controlData), Math.max(...controlData))
+    gaussian(bwCtrl),
+    generateSteps(minCtrl, maxCtrl)
   )(controlData);
 
+  // Calculate dynamic bandwidth for Treatment
+  const bwTrt = silvermanBandwidth(treatedData, treatedStats);
+  const padTrt = bwTrt * 3.5;
+  const minTrt = Math.min(...treatedData) - padTrt;
+  const maxTrt = Math.max(...treatedData) + padTrt;
+
   const kdeTrt = kernelDensityEstimator(
-    gaussian(0.12),
-    generateSteps(Math.min(...treatedData), Math.max(...treatedData))
+    gaussian(bwTrt),
+    generateSteps(minTrt, maxTrt)
   )(treatedData);
 
   const maxDensity = Math.max(
@@ -170,7 +206,7 @@ export default function PopulationChart({ results }) {
         {/* Jittered Scatter Points (positioned left of the box) */}
         {data.map((val, idx) => {
           // Jitter spread between -35px and -8px left of centerX
-          const jitterX = centerX - 10 - pseudoRandom(idx * 7.91) * 32;
+          const jitterX = centerX - 18 - pseudoRandom(idx * 7.91) * 24;
           const cy = scaleY(val);
           return (
             <circle
