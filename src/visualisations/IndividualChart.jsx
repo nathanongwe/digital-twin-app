@@ -20,8 +20,15 @@ export default function ResultsChart({ results = { treated: [], control: [], inp
       drugChartInstance.current = echarts.init(drugChartRef.current);
     }
 
-    const treatedV = (results.treated || []).map((entry) => [entry.t, entry.log10V]);
-    const controlV = (results.control || []).map((entry) => [entry.t, entry.log10V]);
+    const treatedV = (results.treated || [])
+      .filter((entry) => entry.log10V !== undefined)
+      .map((entry) => [entry.t, entry.log10V]);
+    const controlV = (results.control || [])
+      .filter((entry) => entry.log10V !== undefined)
+      .map((entry) => [entry.t, entry.log10V]);
+    const treatedObservedV = (results.treated || [])
+      .filter((entry) => entry.log10V_observed !== undefined)
+      .map((entry) => [entry.t, entry.log10V_observed]);
 
     const t_sigma = Number(results.inputParams.t_sigma);
     const dosing_duration = Number(results.inputParams.dosing_duration);
@@ -42,7 +49,7 @@ export default function ResultsChart({ results = { treated: [], control: [], inp
       },
       legend: {
         top: '8%',
-        data: ['Treatment', 'Control']
+        data: ['Treatment', 'Treatment (observed)', 'Control']
       },
       tooltip: {
         trigger: 'axis',
@@ -52,6 +59,7 @@ export default function ResultsChart({ results = { treated: [], control: [], inp
           let tooltipHtml = `<strong>Time: ${time}</strong><br/>`;
 
           params.forEach((item) => {
+            // if (item.seriesName === 'Treatment (observed)') return;
             const val = Number(item.data[1]).toFixed(2);
             tooltipHtml += `${item.marker} ${item.seriesName}: <strong>${val}</strong><br/>`;
           });
@@ -77,6 +85,16 @@ export default function ResultsChart({ results = { treated: [], control: [], inp
       },
       series: [
         {
+          name: 'Control',
+          type: 'line',
+          showSymbol: false,
+          smooth: true,
+          data: controlV,
+          lineStyle: { width: 2, color: '#db3b3b', type: 'dashed', opacity: 0.7},
+          itemStyle: { color: '#db3b3b' },
+          z: 2
+        },
+        {
           name: 'Treatment',
           type: 'line',
           showSymbol: false,
@@ -85,7 +103,6 @@ export default function ResultsChart({ results = { treated: [], control: [], inp
           lineStyle: { width: 2.5, color: '#2563eb' },
           itemStyle: { color: '#2563eb' },
           z: 3,
-
           markArea: {
             silent: true, // Prevents mouse hover events on the box from intercepting the tooltip
             itemStyle: {
@@ -115,15 +132,16 @@ export default function ResultsChart({ results = { treated: [], control: [], inp
           }
         },
         {
-          name: 'Control',
+          name: 'Treatment (observed)',
           type: 'line',
           showSymbol: false,
-          smooth: true,
-          data: controlV,
-          lineStyle: { width: 2, color: '#db3b3b', type: 'dashed', opacity: 0.7},
-          itemStyle: { color: '#db3b3b' },
-          z: 2
-        }
+          smooth: false,
+          silent: true,
+          data: treatedObservedV,
+          lineStyle: { width: 1, color: '#2563eb', opacity: 0.4 },
+          itemStyle: { color: '#2563eb', opacity: 0.25 },
+          z: 1
+        },
       ]
     };
 
