@@ -267,7 +267,7 @@ export default function PopulationChart({ results }) {
 
   return (
     <div>
-    <div style={{ display: 'inline-block', fontFamily: 'sans-serif' }}>
+    <div style={{ display: 'inline-block' }}>
       <svg width={width} height={height} style={{ background: '#fff' }}>
         {/* Horizontal Gridlines & Y-Axis Labels */}
         {ticks.map((val) => {

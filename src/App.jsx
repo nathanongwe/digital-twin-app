@@ -3,66 +3,30 @@ import { useState } from 'react';
 import IndividualSimulation from './components/IndividualSimulation';
 import PopulationSimulation from './components/PopulationSimulation';
 import TrialSimulation from './components/TrialSimulation';
+import { Tabs, TabsList, TabsTrigger } from './components/ui/tabs';
+import { Separator } from './components/ui/separator';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('individual'); // 'individual' | 'population'
+  const [activeTab, setActiveTab] = useState('individual'); // 'individual' | 'trial'
 
   return (
-    <div style={{ padding: '1.5rem', fontFamily: 'sans-serif' }}>
+    <div className="min-h-screen bg-background p-6 text-foreground">
       {/* Top Header & Page Navigation Tabs */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h2 style={{ margin: 0 }}>Digital Twin App</h2>
-        
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button
-            onClick={() => setActiveTab('individual')}
-            style={{
-              padding: '0.5rem 1rem',
-              fontWeight: activeTab === 'individual' ? 'bold' : 'normal',
-              background: activeTab === 'individual' ? '#e0e0e0' : 'white',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              cursor: 'pointer',
-            }}
-          >
-            Individual Modelling
-          </button>
+      <div className="mb-6 flex items-center justify-between">
+        <h2 className="text-xl font-semibold tracking-tight">Digital Twin App</h2>
 
-          <button
-            onClick={() => setActiveTab('population')}
-            style={{
-              padding: '0.5rem 1rem',
-              fontWeight: activeTab === 'population' ? 'bold' : 'normal',
-              background: activeTab === 'population' ? '#e0e0e0' : 'white',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              cursor: 'pointer',
-            }}
-          >
-            Population Modelling
-          </button>
-
-          <button
-            onClick={() => setActiveTab('trial')}
-            style={{
-              padding: '0.5rem 1rem',
-              fontWeight: activeTab === 'trial' ? 'bold' : 'normal',
-              background: activeTab === 'trial' ? '#e0e0e0' : 'white',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              cursor: 'pointer',
-            }}
-          >
-            Clinical Trial Modelling
-          </button>
-        </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="individual">Individual Modelling</TabsTrigger>
+            <TabsTrigger value="trial">Clinical Trial Modelling</TabsTrigger>
+          </TabsList>
+        </Tabs> 
       </div>
 
-      <hr style={{ marginBottom: '1.5rem', borderColor: '#eee' }} />
+      <Separator className="mb-6" />
 
       {/* Conditional View Rendering */}
       {activeTab === 'individual' && <IndividualSimulation />}
-      {activeTab === 'population' && <PopulationSimulation />}
       {activeTab === 'trial' && <TrialSimulation />}
     </div>
   );

@@ -52,7 +52,7 @@ export default function PopulationApp() {
   };
 
   return (
-    <div style={{ fontFamily: 'sans-serif' }}>
+    <div>
       <h3>Population Simulation</h3>
       <div
         style={{

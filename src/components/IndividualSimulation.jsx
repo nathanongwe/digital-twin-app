@@ -1,6 +1,7 @@
 // src/App.jsx
 import { useState } from 'react';
 import IndividalChart from '../visualisations/IndividualChart';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 
 function calculateDynamicMeans(age, is_vaccinated) {
   const is_age_65_plus = (age >= 65.0);
@@ -159,8 +160,7 @@ export default function App() {
   };
 
   return (
-    <div style={{ fontFamily: 'sans-serif' }}>
-      <h3>Individual Simulation</h3>
+    <div>
       <div
         style={{
           display: 'flex',
@@ -176,29 +176,12 @@ export default function App() {
 
         <form onSubmit={handleRunSimulation} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
           
-          {/* View Mode Toggle */}
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-            <button
-              type="button"
-              onClick={() => setViewMode('simple')}
-              style={{
-                padding: '0.4rem 0.8rem',
-                fontWeight: viewMode === 'simple' ? 'bold' : 'normal',
-              }}
-            >
-              Simple Mode
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('advanced')}
-              style={{
-                padding: '0.4rem 0.8rem',
-                fontWeight: viewMode === 'advanced' ? 'bold' : 'normal',
-              }}
-            >
-              Advanced Mode
-            </button>
-          </div>
+          {/* View Mode Tabs */}
+          <Tabs value={viewMode} onValueChange={setViewMode} className="w-full gap-[0.8rem]">
+            <TabsList variant="line">
+              <TabsTrigger value="simple">Simple Mode</TabsTrigger>
+              <TabsTrigger value="advanced">Advanced Mode</TabsTrigger>
+            </TabsList>
 
           {/* Shared Controls */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -225,70 +208,79 @@ export default function App() {
             />
           </div>
 
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <label>Dosing Duration:</label>
+            <input
+              type="number"
+              name="dose"
+              min="0"
+              value={params.dosing_duration}
+              onChange={(e) => setParams((prev) => ({ ...prev, dosing_duration: parseFloat(e.target.value) || 0 }))}
+              style={{ width: '90px' }}
+            />
+          </div>
+
           <hr style={{ width: '100%', margin: '0.4rem 0' }} />
 
           {/* Simple Mode View */}
-          {viewMode === 'simple' && (
-            <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label>Age:</label>
-                <input
-                  type="number"
-                  name="age"
-                  min="0"
-                  value={patient.age}
-                  onChange={handlePatientChange}
-                  style={{ width: '90px' }}
-                />
-              </div>
+          <TabsContent value="simple" className="flex flex-col gap-[0.8rem]">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label>Age:</label>
+              <input
+                type="number"
+                name="age"
+                min="0"
+                value={patient.age}
+                onChange={handlePatientChange}
+                style={{ width: '90px' }}
+              />
+            </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label>Vaccinated:</label>
-                <input
-                  type="checkbox"
-                  name="vaccinated"
-                  checked={patient.vaccinated}
-                  onChange={handlePatientChange}
-                />
-              </div>
-            </>
-          )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <label>Vaccinated:</label>
+              <input
+                type="checkbox"
+                name="vaccinated"
+                checked={patient.vaccinated}
+                onChange={handlePatientChange}
+              />
+            </div>
+          </TabsContent>
 
           {/* Advanced Mode View */}
-          {viewMode === 'advanced' && (
-            <>
-              {Object.entries(paramConfigs).map(([paramName, config]) => (
-                <div key={paramName} style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label style={{ fontSize: '0.85rem' }}>
-                      {PARAM_LABELS[paramName] || paramName}
-                    </label>
-                    <input
-                      type="number"
-                      min={config.min}
-                      max={config.max}
-                      step="any"
-                      value={params[paramName] ?? config.defaultVal}
-                      onChange={(e) => handleParamChange(paramName, e.target.value)}
-                      style={{ width: '75px' }}
-                    />
-                  </div>
+          <TabsContent value="advanced" className="flex flex-col gap-[0.8rem]">
+            {Object.entries(paramConfigs).map(([paramName, config]) => (
+              <div key={paramName} style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <label style={{ fontSize: '0.85rem' }}>
+                    {PARAM_LABELS[paramName] || paramName}
+                  </label>
                   <input
-                    type="range"
+                    type="number"
                     min={config.min}
                     max={config.max}
-                    step={config.step}
+                    step="any"
                     value={params[paramName] ?? config.defaultVal}
                     onChange={(e) => handleParamChange(paramName, e.target.value)}
+                    style={{ width: '75px' }}
                   />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#666' }}>
-                    <span>Min: {config.min}</span>
-                    <span>Max: {config.max}</span>
-                  </div>
                 </div>
-              ))}
-            </>
-          )}
+                <input
+                  type="range"
+                  min={config.min}
+                  max={config.max}
+                  step={config.step}
+                  value={params[paramName] ?? config.defaultVal}
+                  onChange={(e) => handleParamChange(paramName, e.target.value)}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#666' }}>
+                  <span>Min: {config.min}</span>
+                  <span>Max: {config.max}</span>
+                </div>
+              </div>
+            ))}
+          </TabsContent>
+          </Tabs>
 
           <button
             type="submit"

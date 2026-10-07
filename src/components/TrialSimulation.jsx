@@ -82,8 +82,7 @@ export default function TrialApp() {
   };
 
   return (
-    <div style={{ fontFamily: 'sans-serif' }}>
-      <h3>Clinical Trial Simulation</h3>
+    <div>
       <div
         style={{
           display: 'flex',
