@@ -6,7 +6,8 @@
         "native/addon.cc", 
         "native/models.cpp",
         "native/ancova_analysis.cpp",
-        "native/auc_analysis.cpp"
+        "native/auc_analysis.cpp",
+        "native/rebound_analysis.cpp"
       ],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")",

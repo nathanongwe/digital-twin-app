@@ -1,33 +1,17 @@
 import { useState } from 'react';
 import AncovaSummary from '../visualisations/AncovaSummary';
 import AucSummary from '../visualisations/AucSummary';
+import ReboundSummary from '../visualisations/ReboundSummary';
 
 const TABS = [
   { key: 'day3', label: 'Viral Load Day 3' },
   { key: 'day5', label: 'Viral Load Day 5' },
   { key: 'change', label: 'Change in Viral Load' },
   { key: 'auc', label: 'AUC' },
-  { key: 'clearance', label: 'Viral Clearance Rate' },
+  { key: 'rebound', label: 'Rebound' },
 ];
 
 const ANCOVA_KEYS = ['day3', 'day5', 'change'];
-
-function Placeholder({ label }) {
-  return (
-    <div
-      style={{
-        padding: '1.5rem',
-        textAlign: 'center',
-        color: '#6b7280',
-        background: '#f9fafb',
-        border: '1px solid #e5e7eb',
-        borderRadius: '6px',
-      }}
-    >
-      {label} analysis is not yet available.
-    </div>
-  );
-}
 
 const DEFAULT_TRIAL_PARAMS = {
   runs: 100,
@@ -285,7 +269,7 @@ export default function TrialApp() {
             ) : activeTab === 'auc' ? (
               <AucSummary runs={results?.auc} />
             ) : (
-              <Placeholder label={TABS.find((t) => t.key === activeTab)?.label} />
+              <ReboundSummary runs={results?.rebound} />
             )}
           </div>
         </div>

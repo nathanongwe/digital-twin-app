@@ -9,6 +9,7 @@
 
 #include "ancova_analysis.hpp"
 #include "auc_analysis.hpp"
+#include "rebound_analysis.hpp"
 
 class TrialWorker : public Napi::AsyncWorker {
 public:
@@ -36,6 +37,7 @@ protected:
         day5_ancova_results_.resize(runs_);
         log10V_change_ancova_results_.resize(runs_);
         auc_results_.resize(runs_);
+        rebound_results_.resize(runs_);
 
         #pragma omp parallel for schedule(dynamic)
         for (int r = 0; r < runs_; ++r) {
@@ -60,6 +62,9 @@ protected:
 
             // 5. Run AUC Analysis on viral load
             auc_results_[r] = AnalyseAUC(control_runs_[r], treated_runs_[r], 5);
+
+            // 6. Run Rebound Analysis on viral load
+            rebound_results_[r] = AnalyseRebound(control_runs_[r], treated_runs_[r]);
         }
     }
 
@@ -101,12 +106,27 @@ protected:
             return arr;
         };
 
+        auto toJsReboundArray = [&](const std::vector<ReboundResult>& results) {
+            Napi::Array arr = Napi::Array::New(env, results.size());
+            for (size_t i = 0; i < results.size(); ++i) {
+                const ReboundResult& r = results[i];
+                Napi::Object obj = Napi::Object::New(env);
+                obj.Set("proportion_control", Napi::Number::New(env, r.proportion_control));
+                obj.Set("proportion_treatment", Napi::Number::New(env, r.proportion_treatment));
+                obj.Set("p_value", Napi::Number::New(env, r.p_value));
+                obj.Set("significant", Napi::Boolean::New(env, r.significant));
+                arr.Set(i, obj);
+            }
+            return arr;
+        };
+
         Napi::Object response = Napi::Object::New(env);
         response.Set("runs", Napi::Number::New(env, runs_));
         response.Set("day3", toJsArray(day3_ancova_results_));
         response.Set("day5", toJsArray(day5_ancova_results_));
         response.Set("change", toJsArray(log10V_change_ancova_results_));
         response.Set("auc", toJsAucArray(auc_results_));
+        response.Set("rebound", toJsReboundArray(rebound_results_));
 
         deferred_.Resolve(response);
     }
@@ -130,6 +150,8 @@ private:
     std::vector<AncovaResult> log10V_change_ancova_results_;
 
     std::vector<AucResult> auc_results_;
+
+    std::vector<ReboundResult> rebound_results_;
 
     Napi::Promise::Deferred deferred_;
 };
