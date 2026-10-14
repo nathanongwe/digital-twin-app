@@ -246,32 +246,4 @@
   h4 {
     @apply text-base font-semibold;
   }
-
-  button {
-    @apply cursor-pointer rounded-md border border-input bg-muted px-3 py-1 text-foreground;
-  }
-  button:hover:not(:disabled) {
-    @apply bg-muted/70;
-  }
-  button:disabled {
-    @apply cursor-not-allowed opacity-60;
-  }
-
-  input:not([type='checkbox']):not([type='radio']):not([type='range']),
-  select,
-  textarea {
-    @apply rounded-md border border-input bg-background px-2 py-1 text-foreground;
-  }
-
-  input::placeholder,
-  textarea::placeholder {
-    @apply text-muted-foreground;
-  }
-
-  input:focus-visible,
-  select:focus-visible,
-  textarea:focus-visible,
-  button:focus-visible {
-    @apply outline-none ring-2 ring-ring/50;
-  }
 }

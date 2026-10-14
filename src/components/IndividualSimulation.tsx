@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import IndividalChart from '../visualisations/IndividualChart';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
+import IndividalChart from '@/visualisations/IndividualChart';
 import type {
   RateKey,
   DynamicMeans,
@@ -10,8 +9,25 @@ import type {
   Patient,
   SimulationParams,
   ViewMode,
-  IndividualSimulationResult
-} from '../types/simulation';
+  IndividualSimulationResult,
+} from '@/types/simulation';
+
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Slider } from '@/components/ui/slider';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { Field, FieldLabel } from '@/components/ui/field';
 
 function calculateDynamicMeans(age: number, is_vaccinated: boolean): DynamicMeans {
   const is_age_65_plus = age >= 65.0;
@@ -99,11 +115,10 @@ export default function App(): React.JSX.Element {
 
   const paramConfigs = getParamConfigs(patient.age, patient.vaccinated);
 
-  const handlePatientChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
+  const handlePatientUpdate = (field: keyof Patient, value: number | boolean) => {
     const updatedPatient: Patient = {
       ...patient,
-      [name]: type === 'checkbox' ? checked : parseFloat(value) || 0,
+      [field]: value,
     };
     setPatient(updatedPatient);
 
@@ -112,17 +127,27 @@ export default function App(): React.JSX.Element {
       ...prev,
       ...newRates,
     }));
-  };
+  }
 
-  const handleParamChange = (name: RateKey, rawValue: string) => {
+  const handleParamChange = (name: RateKey, rawValue: string | number) => {
+    const config = paramConfigs[name];
+
     if (rawValue === '') {
-      setParams((prev) => ({ ...prev, [name]: '' }));
+      setParams((prev) => ({
+        ...prev,
+        [name]: config ? config.defaultVal : 0,
+      }));
       return;
     }
 
-    const val = parseFloat(rawValue);
-    const config = paramConfigs[name];
+    const val = typeof rawValue === 'number' ? rawValue : parseFloat(rawValue);
 
+    // Guard against non-numeric values (like 'a', 'NaN')
+    if (Number.isNaN(val)) {
+      return;
+    }
+
+    // Bound checks
     if (config && (val < config.min || val > config.max)) {
       return;
     }
@@ -140,7 +165,6 @@ export default function App(): React.JSX.Element {
 
     try {
       if (window.electronAPI?.runModel) {
-        // 3. 'data' is now automatically inferred as IndividualSimulationResult
         const data = await window.electronAPI.runModel(params);
         setResults(data);
       } else {
@@ -157,177 +181,227 @@ export default function App(): React.JSX.Element {
     }
   };
 
-  return (
-    <div>
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'row',
-          gap: '2.5rem',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-        }}
-      >
-        <div style={{ flex: '0 0 420px', maxWidth: '450px' }}>
-          <h3>Parameters</h3>
+return (
+    <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
+      {/* Left Column: Parameters Card */}
+      <Card className="lg:col-span-4">
 
-          <form
-            onSubmit={handleRunSimulation}
-            style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}
-          >
-            <Tabs
-              value={viewMode}
-              onValueChange={(val) => setViewMode(val as ViewMode)}
-              className="w-full gap-[0.8rem]"
-            >
-              <TabsList variant="line">
-                <TabsTrigger value="simple">Simple Mode</TabsTrigger>
-                <TabsTrigger value="advanced">Advanced Mode</TabsTrigger>
-              </TabsList>
+        <form onSubmit={handleRunSimulation}>
+          <CardContent className="flex flex-col gap-5">
+            {/* Section 1: Always-visible Treatment Regimen */}
+            <div className="flex flex-col gap-3">
+              <span className="text-xs font-semibold uppercase tracking-wider text-primary">
+                Treatment Regimen
+              </span>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label>Time to treatment (t_sigma):</label>
-                <input
-                  type="number"
-                  name="t_sigma"
-                  min="0"
-                  value={params.t_sigma}
-                  onChange={(e) =>
-                    setParams((prev) => ({ ...prev, t_sigma: parseFloat(e.target.value) || 0 }))
-                  }
-                  style={{ width: '90px' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label>Dose:</label>
-                <input
-                  type="number"
-                  name="dose"
-                  min="0"
-                  value={params.dose}
-                  onChange={(e) =>
-                    setParams((prev) => ({ ...prev, dose: parseFloat(e.target.value) || 0 }))
-                  }
-                  style={{ width: '90px' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label>Dosing Duration:</label>
-                <input
-                  type="number"
-                  name="dosing_duration"
-                  min="0"
-                  value={params.dosing_duration}
-                  onChange={(e) =>
-                    setParams((prev) => ({
-                      ...prev,
-                      dosing_duration: parseFloat(e.target.value) || 0,
-                    }))
-                  }
-                  style={{ width: '90px' }}
-                />
-              </div>
-
-              <hr style={{ width: '100%', margin: '0.4rem 0' }} />
-
-              <TabsContent value="simple" className="flex flex-col gap-[0.8rem]">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label>Age:</label>
-                  <input
+              <Field className="min-h-9 flex-row items-center justify-between space-y-0">
+                <FieldLabel className="text-sm font-normal text-foreground">
+                  Time to treatment (t_σ)
+                </FieldLabel>
+                <div className="flex items-center gap-2">
+                  <Input
                     type="number"
-                    name="age"
                     min="0"
-                    value={patient.age}
-                    onChange={handlePatientChange}
-                    style={{ width: '90px' }}
+                    step="0.1"
+                    className="h-9 w-24 text-right tabular-nums"
+                    value={params.t_sigma}
+                    onChange={(e) =>
+                      setParams((prev) => ({
+                        ...prev,
+                        t_sigma: parseFloat(e.target.value) || 0,
+                      }))
+                    }
                   />
+                  <span className="w-8 text-xs text-muted-foreground">days</span>
                 </div>
+              </Field>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label>Vaccinated:</label>
-                  <input
-                    type="checkbox"
-                    name="vaccinated"
-                    checked={patient.vaccinated}
-                    onChange={handlePatientChange}
+              <Field className="min-h-9 flex-row items-center justify-between space-y-0">
+                <FieldLabel className="text-sm font-normal text-foreground">
+                  Dose
+                </FieldLabel>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    className="h-9 w-24 text-right tabular-nums"
+                    value={params.dose}
+                    onChange={(e) =>
+                      setParams((prev) => ({
+                        ...prev,
+                        dose: parseFloat(e.target.value) || 0,
+                      }))
+                    }
                   />
+                  <span className="w-8 text-xs text-muted-foreground">mg</span>
                 </div>
-              </TabsContent>
+              </Field>
 
-              <TabsContent value="advanced" className="flex flex-col gap-[0.8rem]">
-                {(Object.entries(paramConfigs) as [RateKey, ParamConfig][]).map(
-                  ([paramName, config]) => (
-                    <div
-                      key={paramName}
-                      style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}
+              <Field className="min-h-9 flex-row items-center justify-between space-y-0">
+                <FieldLabel className="text-sm font-normal text-foreground">
+                  Dosing Duration
+                </FieldLabel>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    className="h-9 w-24 text-right tabular-nums"
+                    value={params.dosing_duration}
+                    onChange={(e) =>
+                      setParams((prev) => ({
+                        ...prev,
+                        dosing_duration: parseFloat(e.target.value) || 0,
+                      }))
+                    }
+                  />
+                  <span className="w-8 text-xs text-muted-foreground">days</span>
+                </div>
+              </Field>
+            </div>
+
+            <Separator />
+
+            {/* Section 2: Mode-Specific Patient / Kinetic Parameters */}
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wider text-primary">
+                  Patient Kinetics
+                </span>
+              </div>
+
+              <Tabs
+                value={viewMode}
+                onValueChange={(val) => setViewMode(val as ViewMode)}
+                className="w-full"
+              >
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="simple">Simple Mode</TabsTrigger>
+                  <TabsTrigger value="advanced">Advanced Mode</TabsTrigger>
+                </TabsList>
+
+                {/* Simple Mode Content */}
+                <TabsContent value="simple" className="mt-4 flex flex-col gap-3">
+                  <Field className="min-h-9 flex-row items-center justify-between space-y-0">
+                    <FieldLabel
+                      htmlFor="patient-age"
+                      className="text-sm font-normal text-foreground"
                     >
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <label style={{ fontSize: '0.85rem' }}>
-                          {PARAM_LABELS[paramName] || paramName}
-                        </label>
-                        <input
-                          type="number"
-                          min={config.min}
-                          max={config.max}
-                          step="any"
-                          value={params[paramName] ?? config.defaultVal}
-                          onChange={(e) => handleParamChange(paramName, e.target.value)}
-                          style={{ width: '75px' }}
-                        />
-                      </div>
-                      <input
-                        type="range"
-                        min={config.min}
-                        max={config.max}
-                        step={config.step}
-                        value={params[paramName] === '' ? config.defaultVal : params[paramName]}
-                        onChange={(e) => handleParamChange(paramName, e.target.value)}
+                      Patient Age
+                    </FieldLabel>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="patient-age"
+                        type="number"
+                        min="0"
+                        className="h-9 w-24 text-right tabular-nums"
+                        value={patient.age}
+                        onChange={(e) =>
+                          handlePatientUpdate('age', parseFloat(e.target.value) || 0)
+                        }
                       />
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          fontSize: '0.7rem',
-                          color: '#666',
-                        }}
-                      >
-                        <span>Min: {config.min}</span>
-                        <span>Max: {config.max}</span>
-                      </div>
+                      <span className="w-8 text-xs text-muted-foreground">yrs</span>
                     </div>
-                  )
-                )}
-              </TabsContent>
-            </Tabs>
+                  </Field>
 
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                marginTop: '0.75rem',
-                padding: '0.6rem 1rem',
-                cursor: loading ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {loading ? 'Running...' : 'Run Simulation'}
-            </button>
-          </form>
+                  <Field className="min-h-9 flex-row items-center justify-between space-y-0">
+                    <FieldLabel
+                      htmlFor="patient-vaccinated"
+                      className="text-sm font-normal text-foreground"
+                    >
+                      Vaccinated Status
+                    </FieldLabel>
+                    <div className="flex w-[136px] items-center justify-end pr-10">
+                      <Checkbox
+                        id="patient-vaccinated"
+                        checked={patient.vaccinated}
+                        onCheckedChange={(checked) =>
+                          handlePatientUpdate('vaccinated', !!checked)
+                        }
+                      />
+                    </div>
+                  </Field>
+                </TabsContent>
 
-          {error && <p style={{ color: 'red', marginTop: '1rem' }}>Error: {error}</p>}
-        </div>
+                {/* Advanced Mode Content */}
+                <TabsContent value="advanced" className="mt-4 flex flex-col gap-3">
+                  {(Object.entries(paramConfigs) as [RateKey, ParamConfig][]).map(
+                    ([paramName, config]) => {
+                      const currentValue =
+                        params[paramName] === ''
+                          ? config.defaultVal
+                          : Number(params[paramName]);
 
-        <div style={{ flex: '1 1 0', minWidth: '400px' }}>
+                      return (
+                        <div
+                          key={paramName}
+                          className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <FieldLabel className="text-xs font-medium text-foreground">
+                              {PARAM_LABELS[paramName] || paramName}
+                            </FieldLabel>
+                            <Input
+                              type="number"
+                              min={config.min}
+                              max={config.max}
+                              step="any"
+                              className="h-7 w-20 bg-background text-right text-xs tabular-nums"
+                              value={params[paramName] ?? config.defaultVal}
+                              onChange={(e) =>
+                                handleParamChange(paramName, e.target.value)
+                              }
+                            />
+                          </div>
+
+                          <Slider
+                            min={config.min}
+                            max={config.max}
+                            step={config.step}
+                            value={[currentValue]}
+                            onValueChange={(val) => {
+                              const nextVal = Array.isArray(val) ? val[0] : val;
+                              handleParamChange(paramName, nextVal);
+                            }}
+                          />
+
+                          <div className="flex justify-between text-[11px] tabular-nums text-muted-foreground">
+                            <span>Min: {config.min}</span>
+                            <span>Max: {config.max}</span>
+                          </div>
+                        </div>
+                      );
+                    }
+                  )}
+                </TabsContent>
+              </Tabs>
+            </div>
+          </CardContent>
+
+          <CardFooter className="flex flex-col gap-2 pt-2">
+            <Button type="submit" disabled={loading} className="w-full">
+              {loading ? 'Running Simulation...' : 'Run Simulation'}
+            </Button>
+
+            {error && (
+              <p className="text-xs font-medium text-destructive">
+                Error: {error}
+              </p>
+            )}
+          </CardFooter>
+        </form>
+      </Card>
+
+      {/* Right Column: Results Card */}
+      <Card className="lg:col-span-8">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base">Simulation Results</CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent>
           <IndividalChart results={results} />
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

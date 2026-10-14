@@ -216,7 +216,6 @@ export default function ResultsChart({ results = { treated: [], control: [], inp
 
   return (
     <div style={{ marginTop: '1.5rem' }}>
-      <h3>Results</h3>
       {!hasData ? (
         <div
           style={{
