@@ -23,11 +23,10 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
-import { Field, FieldLabel } from '@/components/ui/field';
+import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
+import { Switch } from '@/components/ui/switch';
 
 function calculateDynamicMeans(age: number, is_vaccinated: boolean): DynamicMeans {
   const is_age_65_plus = age >= 65.0;
@@ -130,31 +129,25 @@ export default function App(): React.JSX.Element {
   }
 
   const handleParamChange = (name: RateKey, rawValue: string | number) => {
-    const config = paramConfigs[name];
-
-    if (rawValue === '') {
+    // If changed by the Slider (passes number), save directly
+    if (typeof rawValue === 'number') {
       setParams((prev) => ({
         ...prev,
-        [name]: config ? config.defaultVal : 0,
+        [name]: rawValue,
       }));
       return;
     }
 
-    const val = typeof rawValue === 'number' ? rawValue : parseFloat(rawValue);
-
-    // Guard against non-numeric values (like 'a', 'NaN')
-    if (Number.isNaN(val)) {
+    // If typed by user (passes string):
+    // 1. Only allow valid floating-point characters: optional '-', digits, optional '.'
+    if (!/^-?\d*\.?\d*$/.test(rawValue)) {
       return;
     }
 
-    // Bound checks
-    if (config && (val < config.min || val > config.max)) {
-      return;
-    }
-
+    // 2. Keep the raw string in state so '-', '.', and trailing zeros are not wiped out while typing
     setParams((prev) => ({
       ...prev,
-      [name]: val,
+      [name]: rawValue,
     }));
   };
 
@@ -194,16 +187,23 @@ return (
                 Treatment Regimen
               </span>
 
-              <Field className="min-h-9 flex-row items-center justify-between space-y-0">
-                <FieldLabel className="text-sm font-normal text-foreground">
-                  Time to treatment (t_σ)
-                </FieldLabel>
-                <div className="flex items-center gap-2">
+              <Field className="min-h-11 flex-row items-center justify-between space-y-0">
+                <div className="flex flex-col gap-0.5">
+                  <FieldLabel htmlFor="t_sigma" className="text-sm font-medium text-foreground">
+                    t_sigma (t_σ)
+                  </FieldLabel>
+                  <FieldDescription id="t_sigma-desc" className="text-xs text-muted-foreground">
+                    Days from infection to randomisation
+                  </FieldDescription>
+                </div>
+
+                <div className="relative flex justify-end">
                   <Input
+                    id="t_sigma"
                     type="number"
                     min="0"
                     step="0.1"
-                    className="h-9 w-24 text-right tabular-nums"
+                    className="h-9 w-28 text-right tabular-nums shadow-xs"
                     value={params.t_sigma}
                     onChange={(e) =>
                       setParams((prev) => ({
@@ -212,19 +212,23 @@ return (
                       }))
                     }
                   />
-                  <span className="w-8 text-xs text-muted-foreground">days</span>
                 </div>
               </Field>
 
-              <Field className="min-h-9 flex-row items-center justify-between space-y-0">
-                <FieldLabel className="text-sm font-normal text-foreground">
-                  Dose
-                </FieldLabel>
-                <div className="flex items-center gap-2">
+              <Field className="min-h-11 flex-row items-center justify-between space-y-0">
+                <div className="flex flex-col gap-0.5">
+                  <FieldLabel htmlFor="dose" className="text-sm font-medium text-foreground">
+                    Dose (mg)
+                  </FieldLabel>
+                </div>
+
+                <div className="relative flex justify-end">
                   <Input
+                    id="dose"
                     type="number"
                     min="0"
-                    className="h-9 w-24 text-right tabular-nums"
+                    step="0.1"
+                    className="h-9 w-28 text-right tabular-nums shadow-xs"
                     value={params.dose}
                     onChange={(e) =>
                       setParams((prev) => ({
@@ -233,19 +237,23 @@ return (
                       }))
                     }
                   />
-                  <span className="w-8 text-xs text-muted-foreground">mg</span>
                 </div>
               </Field>
 
-              <Field className="min-h-9 flex-row items-center justify-between space-y-0">
-                <FieldLabel className="text-sm font-normal text-foreground">
-                  Dosing Duration
-                </FieldLabel>
-                <div className="flex items-center gap-2">
+              <Field className="min-h-11 flex-row items-center justify-between space-y-0">
+                <div className="flex flex-col gap-0.5">
+                  <FieldLabel htmlFor="dosing_duration" className="text-sm font-medium text-foreground">
+                    Dosing Duration (days)
+                  </FieldLabel>
+                </div>
+
+                <div className="relative flex justify-end">
                   <Input
+                    id="dosing_duration"
                     type="number"
                     min="0"
-                    className="h-9 w-24 text-right tabular-nums"
+                    step="0.1"
+                    className="h-9 w-28 text-right tabular-nums shadow-xs"
                     value={params.dosing_duration}
                     onChange={(e) =>
                       setParams((prev) => ({
@@ -254,7 +262,6 @@ return (
                       }))
                     }
                   />
-                  <span className="w-8 text-xs text-muted-foreground">days</span>
                 </div>
               </Field>
             </div>
@@ -281,44 +288,41 @@ return (
 
                 {/* Simple Mode Content */}
                 <TabsContent value="simple" className="mt-4 flex flex-col gap-3">
-                  <Field className="min-h-9 flex-row items-center justify-between space-y-0">
-                    <FieldLabel
-                      htmlFor="patient-age"
-                      className="text-sm font-normal text-foreground"
-                    >
-                      Patient Age
-                    </FieldLabel>
-                    <div className="flex items-center gap-2">
+                  <Field className="min-h-11 flex-row items-center justify-between space-y-0">
+                    <div className="flex flex-col gap-0.5">
+                      <FieldLabel htmlFor="age" className="text-sm font-medium text-foreground">
+                        Age
+                      </FieldLabel>
+                    </div>
+
+                    <div className="relative flex justify-end">
                       <Input
-                        id="patient-age"
+                        id="age"
                         type="number"
                         min="0"
-                        className="h-9 w-24 text-right tabular-nums"
+                        className="h-9 w-28 text-right tabular-nums shadow-xs"
                         value={patient.age}
                         onChange={(e) =>
                           handlePatientUpdate('age', parseFloat(e.target.value) || 0)
                         }
                       />
-                      <span className="w-8 text-xs text-muted-foreground">yrs</span>
                     </div>
                   </Field>
 
-                  <Field className="min-h-9 flex-row items-center justify-between space-y-0">
-                    <FieldLabel
-                      htmlFor="patient-vaccinated"
-                      className="text-sm font-normal text-foreground"
-                    >
-                      Vaccinated Status
-                    </FieldLabel>
-                    <div className="flex w-[136px] items-center justify-end pr-10">
-                      <Checkbox
-                        id="patient-vaccinated"
-                        checked={patient.vaccinated}
-                        onCheckedChange={(checked) =>
-                          handlePatientUpdate('vaccinated', !!checked)
-                        }
-                      />
+                  <Field className="min-h-11 flex-row items-center justify-between space-y-0">
+                    <div className="flex flex-col gap-0.5">
+                      <FieldLabel htmlFor="patient-vaccinated" className="text-sm font-medium text-foreground">
+                        Vaccinated Status
+                      </FieldLabel>
+                      <span className="text-xs text-muted-foreground">
+                        {patient.vaccinated ? 'Patient is vaccinated' : 'Patient is unvaccinated'}
+                      </span>
                     </div>
+                    <Switch
+                      id="patient-vaccinated"
+                      checked={patient.vaccinated}
+                      onCheckedChange={(checked) => handlePatientUpdate('vaccinated', !!checked)}
+                    />
                   </Field>
                 </TabsContent>
 
@@ -326,10 +330,14 @@ return (
                 <TabsContent value="advanced" className="mt-4 flex flex-col gap-3">
                   {(Object.entries(paramConfigs) as [RateKey, ParamConfig][]).map(
                     ([paramName, config]) => {
-                      const currentValue =
-                        params[paramName] === ''
-                          ? config.defaultVal
-                          : Number(params[paramName]);
+                      // Ensure slider value stays clamped and strictly numeric
+                      const numericVal = parseFloat(String(params[paramName]));
+                      const sliderValue = Number.isNaN(numericVal)
+                        ? config.defaultVal
+                        : Math.min(Math.max(numericVal, config.min), config.max);
+                      const isOutOfBounds =
+                        !Number.isNaN(numericVal) &&
+                        (numericVal < config.min || numericVal > config.max);
 
                       return (
                         <div
@@ -341,15 +349,25 @@ return (
                               {PARAM_LABELS[paramName] || paramName}
                             </FieldLabel>
                             <Input
-                              type="number"
-                              min={config.min}
-                              max={config.max}
-                              step="any"
-                              className="h-7 w-20 bg-background text-right text-xs tabular-nums"
+                              type="text"
+                              inputMode="decimal"
+                              className={`h-7 w-20 bg-background text-right text-xs tabular-nums ${
+                                isOutOfBounds ? 'border-destructive text-destructive focus-visible:ring-destructive' : ''
+                              }`}
                               value={params[paramName] ?? config.defaultVal}
                               onChange={(e) =>
                                 handleParamChange(paramName, e.target.value)
                               }
+                              onBlur={() => {
+                                // If left empty, incomplete ("-"), or NaN on blur, fallback to default
+                                const parsed = parseFloat(String(params[paramName]));
+                                if (Number.isNaN(parsed)) {
+                                  handleParamChange(paramName, config.defaultVal);
+                                } else {
+                                  const clamped = Math.min(Math.max(parsed, config.min), config.max);
+                                  handleParamChange(paramName, clamped);
+                                }
+                              }}
                             />
                           </div>
 
@@ -357,7 +375,7 @@ return (
                             min={config.min}
                             max={config.max}
                             step={config.step}
-                            value={[currentValue]}
+                            value={[sliderValue]}
                             onValueChange={(val) => {
                               const nextVal = Array.isArray(val) ? val[0] : val;
                               handleParamChange(paramName, nextVal);
