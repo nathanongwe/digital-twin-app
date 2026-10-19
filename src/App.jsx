@@ -1,4 +1,3 @@
-// src/App.jsx
 import { useState } from 'react';
 import IndividualSimulation from './components/IndividualSimulation';
 import PopulationSimulation from './components/PopulationSimulation';
