@@ -103,7 +103,7 @@ export default function TrialSimulation(): React.JSX.Element {
               <div className="grid grid-cols-2 gap-3">
                 <Field>
                   <FieldLabel htmlFor="control_sample_size" className="text-xs font-medium text-foreground">
-                    Control (N)
+                    Control Sample Size
                   </FieldLabel>
                   <Input
                     id="control_sample_size"
@@ -117,7 +117,7 @@ export default function TrialSimulation(): React.JSX.Element {
 
                 <Field>
                   <FieldLabel htmlFor="treatment_sample_size" className="text-xs font-medium text-foreground">
-                    Treatment (N)
+                    Treatment Sample Size
                   </FieldLabel>
                   <Input
                     id="treatment_sample_size"
@@ -159,7 +159,7 @@ export default function TrialSimulation(): React.JSX.Element {
               <div className="grid grid-cols-2 gap-3">
                 <Field>
                   <FieldLabel htmlFor="age_mean" className="text-xs font-medium text-foreground">
-                    Age Mean (μ)
+                    Age Mean
                   </FieldLabel>
                   <Input
                     id="age_mean"
@@ -174,7 +174,7 @@ export default function TrialSimulation(): React.JSX.Element {
 
                 <Field>
                   <FieldLabel htmlFor="age_sd" className="text-xs font-medium text-foreground">
-                    Age SD (σ)
+                    Age SD
                   </FieldLabel>
                   <Input
                     id="age_sd"
@@ -222,7 +222,7 @@ export default function TrialSimulation(): React.JSX.Element {
               <div className="grid grid-cols-3 gap-2">
                 <Field>
                   <FieldLabel htmlFor="t_psi_shape" className="text-xs font-medium text-foreground">
-                    Shape (k)
+                    Shape
                   </FieldLabel>
                   <Input
                     id="t_psi_shape"
@@ -236,7 +236,7 @@ export default function TrialSimulation(): React.JSX.Element {
 
                 <Field>
                   <FieldLabel htmlFor="t_psi_rate" className="text-xs font-medium text-foreground">
-                    Rate (β)
+                    Rate
                   </FieldLabel>
                   <Input
                     id="t_psi_rate"

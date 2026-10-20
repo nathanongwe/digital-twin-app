@@ -190,7 +190,7 @@ return (
               <Field className="min-h-11 flex-row items-center justify-between space-y-0">
                 <div className="flex flex-col gap-0.5">
                   <FieldLabel htmlFor="t_sigma" className="text-sm font-medium text-foreground">
-                    t_sigma (t_σ)
+                    t_sigma (days)
                   </FieldLabel>
                   <FieldDescription id="t_sigma-desc" className="text-xs text-muted-foreground">
                     Days from infection to randomisation
