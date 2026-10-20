@@ -57,11 +57,70 @@ export interface IndividualSimulationResult {
   inputParams: Record<string, unknown>;
 }
 
-// Update the global Window definition to use the actual return type
+// --- Trial Simulation Types ---
+
+export type TrialEndpointKey = 'day3' | 'day5' | 'change' | 'auc' | 'rebound';
+
+export type AncovaEndpointKey = Extract<TrialEndpointKey, 'day3' | 'day5' | 'change'>;
+
+export interface TrialSimulationParams {
+  runs: number;
+  control_sample_size: number;
+  treatment_sample_size: number;
+  dose: number;
+  vaccination_proportion: number;
+  age_mean: number;
+  age_sd: number;
+  t_psi_shape: number;
+  t_psi_rate: number;
+  t_psi_max: number;
+}
+
+// Mirrors `AncovaResult` in native/ancova_analysis.hpp
+export interface AncovaResult {
+  n: number;
+  df_residual: number;
+  mean_control: number;
+  mean_treatment: number;
+  diff: number;
+  se_diff: number;
+  p_value: number;
+  significant: boolean;
+  valid: boolean;
+}
+
+// Mirrors `AucResult` in native/auc_analysis.hpp
+export interface AucResult {
+  mean_control: number;
+  mean_treatment: number;
+  p_value: number;
+  significant: boolean;
+}
+
+// Mirrors `ReboundResult` in native/rebound_analysis.hpp
+export interface ReboundResult {
+  proportion_control: number;
+  proportion_treatment: number;
+  p_value: number;
+  significant: boolean;
+}
+
+// Mirrors the response assembled in native/trial_worker.hpp::OnOK
+export interface TrialSimulationResult {
+  runs: number;
+  day3: AncovaResult[];
+  day5: AncovaResult[];
+  change: AncovaResult[];
+  auc: AucResult[];
+  rebound: ReboundResult[];
+}
+
+// Update the global Window definition to include both model runners
 declare global {
   interface Window {
     electronAPI?: {
       runModel: (params: SimulationParams) => Promise<IndividualSimulationResult>;
+      runTrialModel: (params: TrialSimulationParams) => Promise<TrialSimulationResult>;
     };
   }
 }
