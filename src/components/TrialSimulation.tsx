@@ -21,6 +21,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
+import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const TABS: { key: TrialEndpointKey; label: string }[] = [
   { key: 'day3', label: 'Viral Load Day 3' },
@@ -46,6 +48,7 @@ const DEFAULT_TRIAL_PARAMS: TrialSimulationParams = {
   age_sd: 8.22,
   t_psi_shape: 6.3521, // Shape from symptom onset to randomisation
   t_psi_rate: 3.0167, // Rate of time from symptom onset to randomisation
+  has_t_psi_max: true,
   t_psi_max: 4.0, // Maximum time from symptom onset to randomisation
 };
 
@@ -56,7 +59,18 @@ export default function TrialSimulation(): React.JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TrialEndpointKey>('day3');
 
-  const handleParamChange = (name: keyof TrialSimulationParams, rawValue: string) => {
+  const handleParamChange = (
+    name: keyof TrialSimulationParams,
+    rawValue: string | boolean
+  ) => {
+    if (typeof rawValue === 'boolean') {
+      setParams((prev) => ({
+        ...prev,
+        [name]: rawValue,
+      }));
+      return;
+    }
+
     const parsed = parseFloat(rawValue);
     setParams((prev) => ({
       ...prev,
@@ -219,7 +233,7 @@ export default function TrialSimulation(): React.JSX.Element {
                 </p>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <Field>
                   <FieldLabel htmlFor="t_psi_shape" className="text-xs font-medium text-foreground">
                     Shape
@@ -247,20 +261,34 @@ export default function TrialSimulation(): React.JSX.Element {
                     onChange={(e) => handleParamChange('t_psi_rate', e.target.value)}
                   />
                 </Field>
+              </div>
 
-                <Field>
-                  <FieldLabel htmlFor="t_psi_max" className="text-xs font-medium text-foreground">
-                    Max (days)
-                  </FieldLabel>
-                  <Input
-                    id="t_psi_max"
-                    type="number"
-                    step="any"
-                    className="h-9 w-full text-right tabular-nums shadow-xs"
-                    value={params.t_psi_max}
-                    onChange={(e) => handleParamChange('t_psi_max', e.target.value)}
+            <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="has_t_psi_max"
+                    checked={params.has_t_psi_max}
+                    onCheckedChange={(checked) => handleParamChange('has_t_psi_max', !!checked)}
                   />
-                </Field>
+                  <label
+                    htmlFor="has_t_psi_max"
+                    className="text-sm font-medium text-foreground cursor-pointer select-none"
+                  >
+                    Recruitment Cutoff (days)
+                  </label>
+                </div>
+
+                <Input
+                  id="t_psi_max"
+                  type="number"
+                  min="0"
+                  step="any"
+                  disabled={!params.has_t_psi_max}
+                  placeholder={params.has_t_psi_max ? undefined : '∞'}
+                  className="h-9 w-28 text-right tabular-nums shadow-xs disabled:cursor-not-allowed disabled:opacity-40"
+                  value={params.has_t_psi_max ? params.t_psi_max : ''}
+                  onChange={(e) => handleParamChange('t_psi_max', e.target.value)}
+                />
               </div>
             </div>
 

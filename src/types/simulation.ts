@@ -73,6 +73,7 @@ export interface TrialSimulationParams {
   age_sd: number;
   t_psi_shape: number;
   t_psi_rate: number;
+  has_t_psi_max: boolean;
   t_psi_max: number;
 }
 

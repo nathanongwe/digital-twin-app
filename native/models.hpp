@@ -68,8 +68,9 @@ struct PopulationParamaters{
     double age_sd;
 
     double t_psi_shape; // Shape from symptom onset to randomisation
-    double t_psi_rate; // Rate of time from symptom onset to randomisation
-    double t_psi_max; // Maximum time from symptom onset to randomisation
+    double t_psi_rate;  // Rate of time from symptom onset to randomisation
+    bool has_t_psi_max; // If false, no limit on t_psi will be set
+    double t_psi_max;   // Maximum time from symptom onset to randomisation
 };
 
 void ModelPopulation(const PopulationParamaters& population_parameters,
