@@ -68,6 +68,7 @@ export interface TrialSimulationParams {
   control_sample_size: number;
   treatment_sample_size: number;
   dose: number;
+  dosing_duration: number;
   vaccination_proportion: number;
   age_mean: number;
   age_sd: number;

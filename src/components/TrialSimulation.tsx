@@ -3,6 +3,7 @@ import GammaParamsDialog from '@/components/gamma/GammaParamsDialogue';
 import AncovaSummary from '@/visualisations/AncovaSummary';
 import AucSummary from '@/visualisations/AucSummary';
 import ReboundSummary from '@/visualisations/ReboundSummary';
+import { TRIAL_PRESETS } from '@/lib/trialPresets';
 import type {
   TrialEndpointKey,
   AncovaEndpointKey,
@@ -23,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectGroup, SelectTrigger, SelectValue, SelectItem } from "@/components/ui/select"
 
 const TABS: { key: TrialEndpointKey; label: string }[] = [
   { key: 'day3', label: 'Viral Load Day 3' },
@@ -38,26 +40,26 @@ function isAncovaKey(key: TrialEndpointKey): key is AncovaEndpointKey {
   return ANCOVA_KEYS.includes(key as AncovaEndpointKey);
 }
 
-const DEFAULT_TRIAL_PARAMS: TrialSimulationParams = {
-  runs: 100,
-  control_sample_size: 84,
-  treatment_sample_size: 58,
-  dose: 300,
-  vaccination_proportion: 1.0,
-  age_mean: 29.8,
-  age_sd: 8.22,
-  t_psi_shape: 6.3521, // Shape from symptom onset to randomisation
-  t_psi_rate: 3.0167, // Rate of time from symptom onset to randomisation
-  has_t_psi_max: true,
-  t_psi_max: 4.0, // Maximum time from symptom onset to randomisation
-};
+const PRESET_ENTRIES = Object.entries(TRIAL_PRESETS);
+
+function paramsMatchPreset(
+  params: TrialSimulationParams,
+  preset: TrialSimulationParams
+): boolean {
+  return (Object.keys(preset) as (keyof TrialSimulationParams)[]).every(
+    (key) => params[key] === preset[key]
+  );
+}
 
 export default function TrialSimulation(): React.JSX.Element {
-  const [params, setParams] = useState<TrialSimulationParams>(DEFAULT_TRIAL_PARAMS);
+  const [params, setParams] = useState<TrialSimulationParams>({ ...TRIAL_PRESETS.PLATCOV });
   const [results, setResults] = useState<TrialSimulationResult | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TrialEndpointKey>('day3');
+
+  const selectedPreset =
+    PRESET_ENTRIES.find(([, preset]) => paramsMatchPreset(params, preset))?.[0] ?? null;
 
   const handleParamChange = (
     name: keyof TrialSimulationParams,
@@ -107,6 +109,37 @@ export default function TrialSimulation(): React.JSX.Element {
       <Card className="lg:col-span-4">
         <form onSubmit={handleRunSimulation}>
           <CardContent className="flex flex-col gap-4 pb-6">
+
+            <Field orientation="horizontal" className="items-center justify-between">
+              <FieldLabel htmlFor="trial_preset" className="text-sm font-medium text-foreground">
+                Preset
+              </FieldLabel>
+              <Select
+                id="trial_preset"
+                value={selectedPreset}
+                items={PRESET_ENTRIES.map(([name]) => ({ label: name, value: name }))}
+                onValueChange={(name) => {
+                  if (name && TRIAL_PRESETS[name]) {
+                    setParams({ ...TRIAL_PRESETS[name] });
+                  }
+                }}
+              >
+                <SelectTrigger className="h-9 w-40">
+                  <SelectValue placeholder="Custom" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {PRESET_ENTRIES.map(([name]) => (
+                      <SelectItem key={name} value={name}>
+                        {name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
+            <Separator />
+
             {/* Section 1: Trial Design & Sample Sizes */}
             <div className="flex flex-col gap-2.5">
               <span className="text-xs font-semibold uppercase tracking-wider text-primary">
@@ -142,23 +175,39 @@ export default function TrialSimulation(): React.JSX.Element {
                     onChange={(e) => handleParamChange('treatment_sample_size', e.target.value)}
                   />
                 </Field>
-              </div>
 
-              {/* Dose row */}
-              <Field orientation="horizontal" className="flex items-center justify-between pt-1">
-                <FieldLabel htmlFor="dose" className="text-sm font-medium text-foreground">
-                  Dose (mg)
-                </FieldLabel>
-                <Input
-                  id="dose"
-                  type="number"
-                  min="0"
-                  step="any"
-                  className="h-9 w-28 text-right tabular-nums shadow-xs"
-                  value={params.dose}
-                  onChange={(e) => handleParamChange('dose', e.target.value)}
-                />
-              </Field>
+                {/* Dose row */}
+
+                <Field>
+                  <FieldLabel htmlFor="dose" className="text-xs font-medium text-foreground">
+                    Dose (mg)
+                  </FieldLabel>
+                  <Input
+                    id="dose"
+                    type="number"
+                    min="0"
+                    step="any"
+                    className="h-9 w-28 text-right tabular-nums shadow-xs"
+                    value={params.dose}
+                    onChange={(e) => handleParamChange('dose', e.target.value)}
+                  />
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="dose" className="text-xs font-medium text-foreground">
+                    Dosing Duration (days)
+                  </FieldLabel>
+                  <Input
+                    id="dosing_duration"
+                    type="number"
+                    min="0"
+                    step="any"
+                    className="h-9 w-28 text-right tabular-nums shadow-xs"
+                    value={params.dosing_duration}
+                    onChange={(e) => handleParamChange('dosing_duration', e.target.value)}
+                  />
+                </Field>
+              </div>
             </div>
 
             <Separator />

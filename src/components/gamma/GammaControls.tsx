@@ -2,9 +2,39 @@ import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { FieldLabel } from '@/components/ui/field';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { TRIAL_PRESETS } from '@/lib/trialPresets';
 import { GammaParams, fmt, gammaQuantile } from './gammaMath';
 
 const SLIDER_MAX_CUTOFF = 7;
+
+const GAMMA_PRESETS: { name: string; params: GammaParams }[] = Object.entries(
+  TRIAL_PRESETS
+).map(([name, preset]) => ({
+  name,
+  params: {
+    shape: preset.t_psi_shape,
+    rate: preset.t_psi_rate,
+    hasMax: preset.has_t_psi_max,
+    max: preset.t_psi_max,
+  },
+}));
+
+function gammaParamsMatch(a: GammaParams, b: GammaParams): boolean {
+  return (
+    a.shape === b.shape &&
+    a.rate === b.rate &&
+    a.hasMax === b.hasMax &&
+    a.max === b.max
+  );
+}
 
 interface GammaControlsProps {
   value: GammaParams;
@@ -17,9 +47,41 @@ export function GammaControls({ value, onChange }: GammaControlsProps): React.JS
   const median = gammaQuantile(0.5, k, r);
   const stdDev = Math.sqrt(k) / r;
 
+  const selectedPreset =
+    GAMMA_PRESETS.find((preset) => gammaParamsMatch(value, preset.params))?.name ?? null;
+
   return (
     <div className="flex flex-col justify-between gap-3 md:col-span-4">
       <div className="flex flex-col gap-3">
+        {/* Preset */}
+        <div className="flex items-center justify-between gap-2">
+          <FieldLabel htmlFor="gamma_preset" className="text-xs font-medium">
+            Preset
+          </FieldLabel>
+          <Select
+            id="gamma_preset"
+            value={selectedPreset}
+            items={GAMMA_PRESETS.map(({ name }) => ({ label: name, value: name }))}
+            onValueChange={(name) => {
+              const preset = GAMMA_PRESETS.find((entry) => entry.name === name);
+              if (preset) onChange(() => ({ ...preset.params }));
+            }}
+          >
+            <SelectTrigger size="sm" className="h-7 w-32 text-xs">
+              <SelectValue placeholder="Custom" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {GAMMA_PRESETS.map(({ name }) => (
+                  <SelectItem key={name} value={name}>
+                    {name}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Shape (k) */}
         <div className="flex flex-col gap-2 rounded-lg border p-3">
           <div className="flex items-center justify-between">
