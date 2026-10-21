@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import GammaParamsDialog from '@/components/gamma/GammaParamsDialogue';
 import AncovaSummary from '@/visualisations/AncovaSummary';
 import AucSummary from '@/visualisations/AucSummary';
 import ReboundSummary from '@/visualisations/ReboundSummary';
@@ -21,7 +22,6 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
-import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 
 const TABS: { key: TrialEndpointKey; label: string }[] = [
@@ -224,13 +224,33 @@ export default function TrialSimulation(): React.JSX.Element {
 
             {/* Section 3: Onset to Randomisation (t_psi) */}
             <div className="flex flex-col gap-2.5">
-              <div>
-                <span className="text-xs font-semibold uppercase tracking-wider text-primary">
-                  Onset to Randomisation Distribution
-                </span>
-                <p className="text-[11px] text-muted-foreground">
-                  Gamma distribution parameters for t_psi
-                </p>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-primary">
+                    Onset to Randomisation Distribution
+                  </span>
+                  <p className="text-[11px] text-muted-foreground">
+                    Gamma distribution parameters for t_psi
+                  </p>
+                </div>
+
+                <GammaParamsDialog
+                  value={{
+                    shape: params.t_psi_shape,
+                    rate: params.t_psi_rate,
+                    hasMax: params.has_t_psi_max,
+                    max: params.t_psi_max,
+                  }}
+                  onApply={(next) =>
+                    setParams((prev) => ({
+                      ...prev,
+                      t_psi_shape: next.shape,
+                      t_psi_rate: next.rate,
+                      has_t_psi_max: next.hasMax,
+                      t_psi_max: next.max,
+                    }))
+                  }
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
