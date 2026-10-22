@@ -352,10 +352,14 @@ void ModelPopulation(const PopulationParamaters& population_parameters,
 
         double incubation_period = incubation_period_dist(rng);
         double t_psi; // Time from symptom onset to randomisation
-        do {
-            t_psi = psi_dist(rng);
-        } while ((t_psi < 0.0) || (t_psi > population_parameters.t_psi_max)); // Ensure non-negative symptom-to-randomization time
-
+        if (population_parameters.has_t_psi_max && population_parameters.t_psi_max == 0.0) {
+            t_psi = 0.0;
+        } else {
+            do {
+                t_psi = psi_dist(rng);
+            } while (t_psi < 0.0 || (population_parameters.has_t_psi_max && t_psi > population_parameters.t_psi_max));
+        }
+        
         individual.t_sigma = std::round(incubation_period + t_psi);
 
         IndividualResults individual_results;
