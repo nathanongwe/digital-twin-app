@@ -97,5 +97,9 @@ dist/
 out/
 bin/
 
+# vcpkg (manifest mode install root and CI binary cache)
+vcpkg_installed/
+vcpkg-binary-cache/
+
 # Personal notes
 notes.md

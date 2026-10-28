@@ -5,11 +5,13 @@
   "description": "My Electron application description",
   "main": ".vite/build/main.js",
   "private": true,
+  "gypfile": false,
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make",
     "publish": "electron-forge publish",
+    "build:native": "electron-rebuild -f",
     "lint": "echo \"No linting configured\""
   },
   "keywords": [],
@@ -25,6 +27,7 @@
     "@electron-forge/plugin-fuses": "^7.11.2",
     "@electron-forge/plugin-vite": "^7.11.2",
     "@electron/fuses": "^1.8.0",
+    "@electron/rebuild": "^3.7.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^4.7.0",

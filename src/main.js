@@ -26,8 +26,10 @@ const createWindow = () => {
     mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }
 
-  // Open the DevTools.
-  mainWindow.webContents.openDevTools();
+  // Open the DevTools (development only).
+  if (!app.isPackaged) {
+    mainWindow.webContents.openDevTools();
+  }
 };
 
 // This method will be called when Electron has finished
@@ -60,7 +62,9 @@ app.on('window-all-closed', () => {
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const addonPath = path.join(app.getAppPath(), 'build/Release/simulation_addon.node');
+const addonPath = app.isPackaged
+  ? path.join(process.resourcesPath, 'simulation_addon.node')
+  : path.join(app.getAppPath(), 'build/Release/simulation_addon.node');
 const { modelIndividual, modelPopulation, modelTrial } = require(addonPath);
 
 ipcMain.handle('run-model', async (event, params) => {

@@ -4,6 +4,9 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 module.exports = {
   packagerConfig: {
     asar: true,
+    // The Vite plugin ignores everything outside `.vite`, so the native addon
+    // must be copied to the resources directory explicitly.
+    extraResource: ['build/Release/simulation_addon.node'],
   },
   rebuildConfig: {},
   makers: [

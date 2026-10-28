@@ -1,0 +1,10 @@
+{
+  "name": "digital-twin-app",
+  "version-string": "1.0.0",
+  "builtin-baseline": "58845ed63eb19aff55e896ea1f5d51f2a0df5b66",
+  "dependencies": [
+    "boost-math",
+    "eigen3",
+    "sundials"
+  ]
+}
