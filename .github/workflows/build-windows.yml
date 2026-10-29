@@ -28,12 +28,14 @@ concurrency:
 
 jobs:
   build:
-    runs-on: windows-latest
+    runs-on: windows-2022
     timeout-minutes: 60
 
     env:
       VCPKG_DEFAULT_TRIPLET: x64-windows-static
       npm_config_arch: x64
+      GYP_MSVS_VERSION: '2022'
+      npm_config_msvs_version: '2022'
 
     steps:
       - uses: actions/checkout@v4
