@@ -1,4 +1,7 @@
 {
+  "variables": {
+    "vcpkg_root%": "C:/vcpkg"
+  },
   "targets": [
     {
       "target_name": "simulation_addon",
@@ -12,8 +15,8 @@
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")",
         "native",
-        "C:/vcpkg/installed/x64-windows-static/include",
-        "C:/vcpkg/installed/x64-windows-static/include/eigen3"
+        "<(vcpkg_root)/installed/x64-windows-static/include",
+        "<(vcpkg_root)/installed/x64-windows-static/include/eigen3"
       ],
       "dependencies": [
         "<!(node -p \"require('node-addon-api').gyp\")"
@@ -29,9 +32,9 @@
       "conditions": [
         ['OS=="win"', {
           "libraries": [
-            "-lC:/vcpkg/installed/x64-windows-static/lib/sundials_cvode_static.lib",
-            "-lC:/vcpkg/installed/x64-windows-static/lib/sundials_nvecserial_static.lib",
-            "-lC:/vcpkg/installed/x64-windows-static/lib/sundials_core_static.lib"
+            "-l<(vcpkg_root)/installed/x64-windows-static/lib/sundials_cvode_static.lib",
+            "-l<(vcpkg_root)/installed/x64-windows-static/lib/sundials_nvecserial_static.lib",
+            "-l<(vcpkg_root)/installed/x64-windows-static/lib/sundials_core_static.lib"
           ]
         }]
       ]
